@@ -42,3 +42,21 @@ class ScoringFlowChecks(unittest.TestCase):
                 path.write_text(text, encoding="utf-8")
                 with self.subTest(text=text), self.assertRaises(ValueError):
                     read_rubric(path)
+
+    def test_all_sample_cvs_complete_the_offline_pipeline(self):
+        """Covers extraction, cleanup, request building and score validation."""
+        seen = []
+        def response(messages):
+            payload = json.loads(messages[1]["content"])
+            seen.append(payload["candidate_hash"])
+            return json.dumps(dict(candidate_hash=payload["candidate_hash"],
+                job_id=payload["job_id"], overall_score=0, verdict="WEAK_MATCH",
+                flagged_for_human=True, notes="Offline reliability check.",
+                criteria=[dict(criterion=k, weight=v, status="NOT_FOUND", score=0,
+                               evidence_quote="") for k, v in payload["rubric"].items()]))
+        for sample in sorted((ROOT / "samples/cvs").iterdir()):
+            with self.subTest(sample=sample.name):
+                card = score_candidate(sample, name="Sample Candidate", complete=response,
+                                       rubric_path=ROOT / "rubrics/rubric.md")
+                self.assertTrue(card.flagged_for_human)
+        self.assertEqual(len(seen), 6)

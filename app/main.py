@@ -16,7 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.extractor import extract_text
 from app.guardrails import prepare_candidate, wrap_candidate_data
-from app.deepseek import complete
+from app.providers import ScoringUnavailable, complete
 from app.scorer import score_prepared
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +96,8 @@ def score(token: str, body: ScoreRequest):
             review["candidate"] = candidate
             review["card"] = card.model_dump()
         return review["card"]
+    except ScoringUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
     finally:

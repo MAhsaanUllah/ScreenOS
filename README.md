@@ -2,7 +2,7 @@
 
 SCREENOS is an AI-assisted candidate screening workspace designed for non-technical recruiters. It automates repetitive first-pass resume evaluation while enforcing strict anti-bias, anti-prompt-injection guardrails, and requiring verifiable evidence quotes from the candidate's CV.
 
-> **Current Milestone: Day 2 (Safety, Structure & Working v0)**  
+> **Current Milestone: Day 3 (Working Core & Reliability)**
 > Ingestion, PII redaction, structured scorecard schemas, provider transports (DeepSeek / Gemini / CommandCode), and a local human-in-the-loop recruiter interface are fully implemented and verified.
 
 ---
@@ -25,6 +25,9 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 # Or Google Gemini
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.8-flash
+
+# Try DeepSeek first, then Gemini if it is unavailable or rate-limited
+LLM_PROVIDER=deepseek,gemini
 ```
 
 ### 3. Launch the Recruiter Workspace

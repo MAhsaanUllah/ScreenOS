@@ -5,11 +5,13 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 import app.main as web
+from app.providers import ScoringUnavailable
 
 
 class WebChecks(unittest.TestCase):
     def test_preview_score_and_human_decision(self):
         web.reviews.clear()
+
         client=TestClient(web.app)
         headers={"X-Screenos":"1"}
         self.assertEqual(client.get("/").status_code,200)
@@ -33,4 +35,21 @@ class WebChecks(unittest.TestCase):
             self.assertEqual(saved.status_code,200)
             self.assertEqual(len(list((Path(folder)/"output").glob("*.json"))),1)
             self.assertEqual(client.post(decision,headers=headers,json={"decision":"APPROVE"}).status_code,409)
+        web.reviews.clear()
+
+    def test_provider_downtime_is_safe_and_retryable(self):
+        web.reviews.clear()
+        client = TestClient(web.app)
+        headers = {"X-Screenos": "1"}
+        reply = client.post("/api/preview", headers=headers,
+                            files={"file": ("cv.txt", b"Sample Candidate\nBuilt Python tools.")},
+                            data={"name": "Sample Candidate"})
+        token = reply.json()["review_id"]
+        with patch.object(web, "complete", side_effect=ScoringUnavailable(
+                "Scoring is temporarily unavailable. Your CV preview is safe; try again shortly.")):
+            result = client.post(f"/api/reviews/{token}/score", headers=headers,
+                                 json={"cleaned_text": "Built Python tools."})
+        self.assertEqual(result.status_code, 503)
+        self.assertIn("preview is safe", result.json()["detail"])
+        self.assertFalse(web.reviews[token]["busy"])
         web.reviews.clear()
