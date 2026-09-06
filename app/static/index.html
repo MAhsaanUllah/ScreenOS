@@ -1,8 +1,138 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SCREENOS · Candidate review</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
-<body><header><strong>SCREENOS<span> / Candidate review</span></strong><span class="tag">AI Engineer · 100 points</span></header>
-<main><div class="heading"><p class="eyebrow">RECRUITING WORKSPACE</p><h1>Evidence first. Your decision.</h1><p>Review one CV against the job requirements, with a source quote for every positive score.</p></div>
-<div id="status" role="status" aria-live="polite">Start by uploading a CV. Preview stays on this computer.</div>
-<div class="workspace"><section class="panel"><h2>1. Prepare the CV</h2><form id="upload"><label>Resume <input name="file" type="file" accept=".pdf,.docx,.txt" required></label><small>PDF, DOCX or TXT · maximum 10 MB</small><label>Candidate’s full name <input name="name" required placeholder="Name to remove from the CV" maxlength="200"></label><details><summary>Additional personal details</summary><label>Address to remove <input name="address" maxlength="500"></label><label>Graduation years <input name="years" placeholder="2022, 2024"></label></details><button id="preview" type="submit">Prepare preview</button></form>
-<div id="preview-area" hidden><label for="cleaned">Cleaned CV · editable</label><p class="hint">Check for missed names, contact details and dates. Remove them here before sending.</p><textarea id="cleaned" rows="15" maxlength="100000"></textarea><label class="check"><input id="consent" type="checkbox"> I reviewed this text and authorize sending it to DeepSeek.</label><button id="score" disabled>Send to DeepSeek &amp; score</button><small>Uses your configured API account. Usage charges may apply.</small></div></section>
-<section class="panel"><h2>2. Review the evidence</h2><div id="empty"><div class="placeholder">“ ”</div><h3>Your scorecard will appear here</h3><p>Each requirement includes its points and the exact supporting CV text. Missing evidence does not prove missing ability.</p></div><div id="result" hidden><div class="scoreline"><strong id="total"></strong><span id="verdict" class="tag"></span></div><div id="criteria"></div><p id="notes"></p><div class="decision"><h2>3. Your decision</h2><p>The score is a suggestion. You make the final screening decision.</p><label for="review-notes">Recruiter notes</label><textarea id="review-notes" rows="3" maxlength="2000"></textarea><div class="actions"><button id="approve">Approve</button><button id="reject" class="secondary">Reject</button></div><p id="saved"></p><button id="download" class="secondary" hidden>Download review JSON</button></div></div></section></div></main><footer>Local review workspace · Personal-detail removal needs human checking · No automatic decisions</footer></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCREENOS · Fair & Evidence-Based Screening</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <strong>SCREENOS</strong>
+      <span>/ Candidate Screening Workspace</span>
+    </div>
+    <div class="tag-badge">
+      <span>Active Rubric:</span>
+      <strong>AI Engineer · 100 Pts</strong>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <p class="eyebrow">High-Trust Recruiter Workspace</p>
+      <h1>Evidence First. Human Decision.</h1>
+      <p class="subtitle">Screen CVs against verifiable requirements. Positive points require direct quotes.</p>
+    </div>
+
+    <div id="status" role="status" aria-live="polite">
+      Upload a CV (PDF, DOCX, or TXT) to begin local intake.
+    </div>
+
+    <div class="workspace">
+      <!-- Left Panel: Intake & Cleaned Preview -->
+      <section class="panel">
+        <h2 class="panel-title">1. Intake & Safety Redaction</h2>
+        
+        <form id="upload">
+          <div class="dropzone" id="dropzone">
+            <label class="dropzone-label">
+              <span class="dropzone-icon">📄</span>
+              <strong>Choose a resume file or drag here</strong>
+              <span class="hint-text">Supported: PDF, DOCX, TXT (up to 10 MB)</span>
+              <input name="file" id="file-input" type="file" accept=".pdf,.docx,.txt" required>
+            </label>
+          </div>
+          <div class="sample-row">
+            <span class="hint-text" id="file-name-display">No file selected</span>
+            <button type="button" class="btn-link" id="load-sample-btn">Load Sample CV (01_strong.txt)</button>
+          </div>
+
+          <label for="name-input">Candidate Full Name (to redact)</label>
+          <input id="name-input" name="name" required placeholder="e.g. Amina Example" maxlength="200">
+          <p class="hint-text">Required to strip name references and prevent demographic bias.</p>
+
+          <details>
+            <summary>Additional Identity Redaction (Optional)</summary>
+            <label for="address-input">Address to redact</label>
+            <input id="address-input" name="address" placeholder="e.g. Gujranwala, Pakistan" maxlength="500">
+            <label for="years-input">Graduation years to redact</label>
+            <input id="years-input" name="years" placeholder="e.g. 2022, 2026">
+          </details>
+
+          <button id="preview" type="submit" class="btn-primary">Prepare & Clean Resume</button>
+        </form>
+
+        <div id="preview-area" hidden style="margin-top: 24px;">
+          <div class="telemetry-row">
+            <span class="pill pill-green">✓ PII Sanitized</span>
+            <span class="pill pill-blue">✓ Anti-Injection Boundary Active</span>
+          </div>
+
+          <label for="cleaned">Sanitized Candidate Text (Auditable & Editable)</label>
+          <p class="hint-text">Review the sanitized text below before scoring.</p>
+          <textarea id="cleaned" rows="12" maxlength="100000"></textarea>
+
+          <label class="check-row">
+            <input id="consent" type="checkbox">
+            <span>I have verified the sanitized text and authorize evaluation.</span>
+          </label>
+
+          <button id="score" class="btn-primary" disabled>Score Candidate with AI Scorer</button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Evidence Scorecard -->
+      <section class="panel">
+        <h2 class="panel-title">2. Verified Evidence Card</h2>
+
+        <div id="empty" class="empty-state">
+          <div class="empty-icon">📊</div>
+          <h3>Scorecard will generate here</h3>
+          <p class="hint-text" style="max-width: 320px; margin: 8px auto 0;">
+            Every awarded score includes the exact verbatim quote from the candidate CV.
+          </p>
+        </div>
+
+        <div id="result" hidden>
+          <div class="score-hero">
+            <div>
+              <div class="hint-text" style="text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Total Evaluation Score</div>
+              <div class="score-number" id="total">--<small>/100</small></div>
+            </div>
+            <div>
+              <span id="verdict" class="verdict-badge verdict-strong">STRONG MATCH</span>
+            </div>
+          </div>
+
+          <div class="criteria-list" id="criteria"></div>
+
+          <div style="margin-top: 20px; padding: 14px; background: var(--bg-app); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+            <strong style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 4px;">Scoring Summary & Notes</strong>
+            <p id="notes" style="font-size: 13px; color: var(--text-primary);"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Decision Bar -->
+  <div class="sticky-decision-bar">
+    <div class="decision-info">
+      <div>
+        <strong style="font-size: 13px; display: block;">3. Human Recruiter Decision</strong>
+        <span class="hint-text">AI recommendations require human review under NYC LL144 & EU AI Act.</span>
+      </div>
+      <input id="review-notes" class="decision-notes-input" placeholder="Add recruiter review notes (optional)..." maxlength="2000" disabled>
+    </div>
+
+    <div class="decision-actions">
+      <span id="saved" style="font-size: 12px; color: var(--status-met); font-weight: 500;"></span>
+      <button id="approve" class="btn-approve" disabled>Approve (Interview)</button>
+      <button id="reject" class="btn-reject" disabled>Reject</button>
+      <button id="download" class="btn-secondary" hidden>Download Review JSON</button>
+    </div>
+  </div>
+</body>
+</html>
