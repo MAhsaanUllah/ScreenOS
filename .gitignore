@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+output/
+private_cvs/
+docs/DESIGN_SYSTEM.md
+MENTOR.md
+PROJECT_DETAILS.md
+ASSESSMENT_BRIEF.md
+.commandcode/
+.hermes/
+
