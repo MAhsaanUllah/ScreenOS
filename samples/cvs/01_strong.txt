@@ -1,0 +1,8 @@
+FICTIONAL SAMPLE - not a real applicant
+Amina Example
+AI Engineer at Example Studio
+Built automated invoice review with a human approval step.
+Built a Python FastAPI service with validated requests and helpful errors.
+Created document search that returned exact source quotes with each answer.
+Designed a database with separate customer access and tested access checks.
+Added 32 automated tests and deployed the service with failure alerts.
