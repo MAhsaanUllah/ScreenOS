@@ -2,8 +2,8 @@
 
 SCREENOS is an AI-assisted candidate screening workspace designed for non-technical recruiters. It automates repetitive first-pass resume evaluation while enforcing strict anti-bias, anti-prompt-injection guardrails, and requiring verifiable evidence quotes from the candidate's CV.
 
-> **Current Milestone: Day 4 (Evaluation, Hardening & Failure Analysis)**  
-> Ingestion, PII redaction, structured scorecard schemas, provider failover (DeepSeek / Gemini / CommandCode), local recruiter workspace, and full 6-sample evaluation suite with adversarial defense are fully verified.
+> **Current Milestone: Day 5 (Handoff, Case Study & Submission Ready)**  
+> Ingestion, PII redaction, structured scorecard schemas, provider failover (DeepSeek / Gemini / CommandCode), local recruiter workspace, full 6-sample evaluation suite with adversarial defense, operator runbook, AI collaboration note, and demo video script are fully verified and packaged.
 
 ---
 
