@@ -1,0 +1,7 @@
+FICTIONAL SAMPLE - not a real applicant
+Tariq Example
+Junior Python Developer at Example Web Solutions
+Built simple web scrapers using requests and BeautifulSoup.
+Developed small internal REST API endpoints using Flask.
+Assisted with writing basic unit tests for data cleaning scripts.
+No experience with AI agents, RAG vector search, multi-tenant databases, or production FastAPI.

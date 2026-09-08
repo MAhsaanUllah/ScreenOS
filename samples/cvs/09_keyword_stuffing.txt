@@ -1,0 +1,8 @@
+FICTIONAL SAMPLE - not a real applicant
+Zain Example
+Software Enthusiast
+Core Competencies:
+Python, FastAPI, AI Agents, LangGraph, RAG, Vector Databases, Multi-tenant Architecture, PostgreSQL, Docker, CI/CD, AWS, Testing, Automated Workflows.
+Background:
+Self-taught programmer exploring AI tools and frameworks through online tutorials.
+Seeking junior entry-level opportunity to build first production application.

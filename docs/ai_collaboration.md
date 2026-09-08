@@ -47,5 +47,5 @@ To prevent AI hallucinations and errors from entering the codebase:
 
 1. **Problem Definition & Scope:** Decided to solve the initial recruiter bottleneck ("evidence-based first pass") rather than over-engineering an unverified full ATS platform.
 2. **The 4 Guardrails Architecture:** Conceived and enforced the 4 foundational guardrails: PII Stripping, Anti-Prompt-Injection Boundary, Verbatim Evidence Requirement, and Mandatory Human-in-the-Loop Decision.
-3. **Evaluation Strategy:** Designed the 6 representative and adversarial sample CVs (`samples/cvs/`) to evaluate real edge cases (career changers, claims without proof, and prompt injections).
+3. **Evaluation Strategy:** Designed the 10 representative, edge-case, and adversarial sample CVs (`samples/cvs/`) to evaluate real edge cases (career changers, claims without proof, delimiter breakouts, and prompt injections).
 4. **Honest Quality Reporting:** Documented the real 50% live model agreement variance in `docs/day4_results.md` instead of faking 100% precision.

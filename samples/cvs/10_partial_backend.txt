@@ -1,0 +1,7 @@
+FICTIONAL SAMPLE - not a real applicant
+Farhan Example
+Senior Backend Developer at Cloud Retail Systems
+Built high-throughput Python FastAPI microservices handling 5,000 requests/sec with Pydantic validation.
+Architected PostgreSQL database with row-level security (RLS) ensuring strict multi-tenant customer isolation.
+Maintained automated CI/CD pipeline with GitHub Actions, running 150+ integration tests and automated deployments to AWS.
+No prior experience with generative AI, LLM agents, vector embeddings, or document RAG workflows.

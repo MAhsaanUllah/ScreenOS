@@ -3,7 +3,15 @@
 SCREENOS is an AI-assisted candidate screening workspace designed for non-technical recruiters. It automates repetitive first-pass resume evaluation while enforcing strict anti-bias, anti-prompt-injection guardrails, and requiring verifiable evidence quotes from the candidate's CV.
 
 > **Current Milestone: Day 5 (Handoff, Case Study & Submission Ready)**  
-> Ingestion, PII redaction, structured scorecard schemas, provider failover (DeepSeek / Gemini / CommandCode), local recruiter workspace, full 6-sample evaluation suite with adversarial defense, operator runbook, AI collaboration note, and demo video script are fully verified and packaged.
+> Ingestion, PII redaction, structured scorecard schemas, provider failover (DeepSeek / Gemini / CommandCode), local recruiter workspace, full 10-sample evaluation suite with adversarial defense, operator runbook, AI collaboration note, and demo video script are fully verified and packaged.
+
+### 📚 Official Sprint Deliverables
+1. **Working System:** Reproducible local repository with 3-step setup (see below).
+2. **Evaluation Package:** [docs/evaluation_package.md](docs/evaluation_package.md) (10 test cases, baseline comparison, RCA).
+3. **Case Study:** [docs/case_study.md](docs/case_study.md) (User, bottleneck, architecture, trade-offs, HITL, roadmap).
+4. **AI Collaboration Note:** [docs/ai_collaboration.md](docs/ai_collaboration.md) (Tools used, verified results, rejected outputs, owned decisions).
+5. **Operator Runbook:** [docs/runbook.md](docs/runbook.md) (3-step setup, recruiter operation, rubric customization).
+6. **Demo Video Script:** [docs/demo_script.md](docs/demo_script.md) (Timestamped 5-minute walkthrough).
 
 ---
 
