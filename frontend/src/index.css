@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply w-full bg-brand-500 text-white border border-transparent px-4 py-2.5 rounded-md text-sm font-semibold cursor-pointer transition-colors hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-approve {
+    @apply bg-emerald-600 text-white border-none px-4 py-2 rounded-md font-semibold text-sm cursor-pointer transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-reject {
+    @apply bg-white text-red-600 border border-red-200 px-4 py-2 rounded-md font-semibold text-sm cursor-pointer hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .panel {
+    @apply bg-white border border-slate-200 rounded-xl p-6 shadow-sm;
+  }
+  .pill-green {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+  .pill-blue {
+    @apply bg-blue-50 text-blue-800 border border-blue-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+}
+
+/* keep legacy status/criterion helpers for screening workspace */
+.verdict-badge { @apply text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide border; }
+.verdict-strong { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+.verdict-possible { @apply bg-amber-50 text-amber-700 border-amber-200; }
+.verdict-weak { @apply bg-slate-50 text-slate-500 border-slate-200; }
+.criterion-card { @apply border border-slate-200 rounded-lg p-4 bg-white; }
+.criterion-card.met { border-left: 4px solid #059669; }
+.criterion-card.partial { border-left: 4px solid #d97706; }
+.criterion-card.notfound { border-left: 4px solid #64748b; }
+.quote-block {
+  font-family: 'JetBrains Mono', monospace;
+  @apply text-xs leading-relaxed bg-slate-50 border border-slate-200 rounded-md p-3 mt-2 whitespace-pre-wrap break-words;
+}
