@@ -51,6 +51,8 @@ export default function Screening() {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState({ text: 'Upload a CV (PDF, DOCX, or TXT) to begin.', error: false })
+  const [batchFiles, setBatchFiles] = useState([])
+  const [batch, setBatch] = useState(null)
 
   function status(text, error) { setNotice({ text, error: !!error }) }
 
@@ -157,6 +159,40 @@ export default function Screening() {
     })
   }
 
+  async function handleBatchUpload() {
+    if (!batchFiles.length || busy) return
+    setBusy(true)
+    status('Uploading batch and scanning files...')
+    try {
+      const form = new FormData()
+      batchFiles.forEach(f => form.append('file', f))
+      const result = await api('/api/preview/batch', { method: 'POST', body: form })
+      setBatch(result)
+      status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
+    } catch (err) {
+      status(err.message, true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function openBatchReview(row) {
+    try {
+      const detail = await api(`/api/reviews/${row.review_id}`)
+      setRawText(detail.cleaned_text)
+      setDetectedPii(row.detected_pii || [])
+      const allIdx = new Set((row.detected_pii || []).map((_, i) => i))
+      setSelectedPii(allIdx)
+      setReviewId(row.review_id)
+      setCleanedText(detail.cleaned_text)
+      setCard(null); setRecord(null); setNotes('')
+      setStep(3)
+      status(`Loaded ${row.filename}. Review the sanitized text and score.`)
+    } catch (err) {
+      status(err.message, true)
+    }
+  }
+
   const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year' }
 
   return (
@@ -191,6 +227,65 @@ export default function Screening() {
               </div>
               <button type="submit" disabled={busy} className="btn-primary mt-4">Upload and scan</button>
             </form>
+
+            <details className="mt-6 border border-slate-200 rounded-lg p-4 open:pb-4">
+              <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">Bulk import (ZIP or multiple files)</summary>
+              <label className="block text-xs text-slate-500 mt-2 mb-2">
+                Drop a ZIP, or select several PDF, DOCX or TXT files. Names are guessed from filenames.
+              </label>
+              <input
+                type="file"
+                multiple
+                accept=".zip,.pdf,.docx,.txt"
+                onChange={e => setBatchFiles([...e.target.files])}
+                className="block text-sm mb-2"
+              />
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={handleBatchUpload} disabled={busy || !batchFiles.length} className="btn-primary">
+                  Import {batchFiles.length ? `${batchFiles.length} file${batchFiles.length === 1 ? '' : 's'}` : ''}
+                </button>
+                {batch && (
+                  <span className="text-xs text-slate-500">
+                    {batch.accepted} accepted, {batch.skipped.length} skipped
+                  </span>
+                )}
+              </div>
+              {batch && batch.reviews.length > 0 && (
+                <div className="mt-4 border border-slate-200 rounded-md overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">File</th>
+                        <th className="px-3 py-2">Guessed name</th>
+                        <th className="px-3 py-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {batch.reviews.map(r => (
+                        <tr key={r.review_id}>
+                          <td className="px-3 py-2 text-slate-700">{r.filename}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button onClick={() => openBatchReview(r)} className="link-btn text-xs">
+                              Open review
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {batch && batch.skipped.length > 0 && (
+                <div className="mt-2">
+                  {batch.skipped.map(s => (
+                    <p key={s.filename} className="text-xs text-red-600">
+                      Skipped: {s.filename}. {s.reason}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </details>
           </section>
           <section className="panel">
             <h2 className="panel-title">How it works</h2>
