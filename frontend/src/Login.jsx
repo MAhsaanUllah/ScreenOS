@@ -37,12 +37,12 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-500 text-white text-lg font-bold font-display mb-4">S</div>
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-brand-600 text-white text-lg font-bold font-display mb-4">S</div>
           <div className="text-2xl font-bold tracking-tight text-slate-900 font-display">SCREENOS</div>
           <p className="text-sm text-slate-500 mt-1">Fair & Evidence-Based Screening</p>
         </div>
 
-        <form onSubmit={submit} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <form onSubmit={submit} className="bg-white border border-slate-200 rounded-lg p-6">
           {mode === 'register' && (
             <div className="mb-4">
               <label htmlFor="org-name" className="label">Organization name</label>
@@ -78,7 +78,7 @@ export default function Login({ onLogin }) {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="At least 8 characters"
               minLength={8}
               required
               className="input"

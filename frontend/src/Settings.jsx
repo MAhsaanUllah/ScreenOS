@@ -89,7 +89,7 @@ export default function Settings({ session, onSessionChange }) {
           : 'Only admins can change organization and provider settings. Your own password can always be changed.'} />
 
       <div className="flex flex-col gap-6 max-w-3xl">
-        <section className="bg-white border border-slate-200 rounded-xl p-5">
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
           <h2 className="panel-title">Organization</h2>
           {org && (
             <div className="flex flex-col gap-4">
@@ -110,7 +110,7 @@ export default function Settings({ session, onSessionChange }) {
           )}
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-5">
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
           <h2 className="panel-title">Password</h2>
           {passMsg && <Alert tone={passMsg.startsWith('Password changed') ? 'success' : 'error'}>{passMsg}</Alert>}
           <form onSubmit={changePassword} className="flex flex-col gap-3">
@@ -126,7 +126,7 @@ export default function Settings({ session, onSessionChange }) {
           </form>
         </section>
 
-        <section className="bg-white border border-slate-200 rounded-xl p-5">
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
           <h2 className="panel-title">AI Provider Keys</h2>
           <p className="text-xs text-slate-500 mb-4">
             Keys are masked after saving and never shown again. Two configured providers are used in order, so the second acts as a fallback when one fails.
@@ -139,11 +139,11 @@ export default function Settings({ session, onSessionChange }) {
                   <div className="flex items-center justify-between mb-2">
                     <strong className="text-sm text-slate-900">{spec.label}</strong>
                     {entry ? (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                      <span className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-50 text-emerald-700">
                         {spec.needs_key ? `Key saved (${entry.hint})` : 'No key needed'} · {entry.model || spec.default_model}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500">Not configured</span>
+                      <span className="text-[11px] font-semibold px-2 py-1 rounded bg-slate-100 text-slate-500">Not configured</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mb-3">Default model: {spec.default_model}</p>

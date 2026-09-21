@@ -33,7 +33,7 @@ export default function Screening() {
     if (fileInput.current) fileInput.current.files = [file]
     setFileName('Selected: 01_strong.txt')
     document.getElementById('name-input').value = 'Amina Example'
-    status('Sample CV loaded: 01_strong.txt. Click "Prepare & Clean Resume".')
+    status('Sample CV loaded: 01_strong.txt. Click "Prepare and clean resume".')
   }
 
   async function prepare(e) {
@@ -131,38 +131,37 @@ export default function Screening() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <PageHeader eyebrow="High-Trust Recruiter Workspace" title="Evidence First. Human Decision."
+      <PageHeader eyebrow="High-trust recruiter workspace" title="Evidence first. Human decision."
         description="Screen CVs against verifiable requirements. Positive points require direct quotes." />
 
       <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
       <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
         <section className="panel">
-          <h2 className="panel-title">1. Intake & Safety Redaction</h2>
+          <h2 className="panel-title">1. Intake and safety redaction</h2>
 
           <form onSubmit={prepare}>
             <div
               className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
               onClick={() => fileInput.current?.click()}
             >
-              <div className="text-2xl mb-1">📄</div>
-              <strong className="block text-sm">Choose a resume file or drag here</strong>
+              <strong className="block text-sm">Choose a resume file or drag it here</strong>
               <p className="text-xs text-slate-400 mt-1">Supported: PDF, DOCX, TXT (up to 10 MB)</p>
               <input ref={fileInput} name="file" id="file-input" type="file" accept=".pdf,.docx,.txt" required className="hidden" />
             </div>
 
             <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-slate-400">{fileName}</span>
-              <button type="button" onClick={loadSample} className="text-xs text-blue-600 underline">Load Sample CV (01_strong.txt)</button>
+              <button type="button" onClick={loadSample} className="link-btn">Load sample CV (01_strong.txt)</button>
             </div>
 
-            <label className="label mt-4">Candidate Full Name (to redact)</label>
+            <label className="label mt-4">Candidate full name (to redact)</label>
             <input id="name-input" name="name" required placeholder="e.g. Amina Example" maxLength={200}
               className="input" />
             <p className="text-xs text-slate-400 mt-1">Required to strip name references and prevent demographic bias.</p>
 
-            <details className="mt-4 mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded-md">
-              <summary className="cursor-pointer text-xs font-medium text-slate-600">Additional Identity Redaction (Optional)</summary>
+            <details className="mt-4 mb-3 p-2 bg-slate-50 border border-slate-200 rounded-md">
+              <summary className="cursor-pointer text-xs font-medium text-slate-600">Additional identity redaction (optional)</summary>
               <label className="label mt-3">Address to redact</label>
               <input name="address" placeholder="e.g. Gujranwala, Pakistan" maxLength={500}
                 className="input" />
@@ -171,13 +170,13 @@ export default function Screening() {
                 className="input" />
             </details>
 
-            <button type="submit" disabled={busy} className="btn-primary mt-3">Prepare & Clean Resume</button>
+            <button type="submit" disabled={busy} className="btn-primary mt-3">Prepare and clean resume</button>
           </form>
 
           <details className="mt-6 border border-slate-200 rounded-lg p-4 open:pb-4">
-            <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">Bulk Import (ZIP or multiple files)</summary>
+            <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">Bulk import (ZIP or multiple files)</summary>
             <label className="block text-xs text-slate-500 mt-2 mb-2">
-              Drop a ZIP, or select several PDF/DOCX/TXT files. Names are guessed from filenames and redacted automatically — review each one below before scoring.
+              Drop a ZIP, or select several PDF, DOCX or TXT files. Names are guessed from filenames and redacted automatically. Review each one below before scoring.
             </label>
             <input
               type="file"
@@ -215,8 +214,8 @@ export default function Screening() {
                             <td className="px-3 py-2 text-slate-700">{r.filename}</td>
                             <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
                             <td className="px-3 py-2 text-right">
-                              <button onClick={() => reviewFromBatch(r)} className="text-xs font-semibold text-blue-600 hover:underline">
-                                Open review →
+                              <button onClick={() => reviewFromBatch(r)} className="link-btn">
+                                Open review
                               </button>
                             </td>
                           </tr>
@@ -228,8 +227,8 @@ export default function Screening() {
                 {batch.skipped.length > 0 && (
                   <div className="mt-2">
                     {batch.skipped.map(s => (
-                      <p key={s.filename} className="text-xs text-rose-600">
-                        Skipped: {s.filename} — {s.reason}
+                      <p key={s.filename} className="text-xs text-red-600">
+                        Skipped: {s.filename}. {s.reason}
                       </p>
                     ))}
                   </div>
@@ -244,7 +243,7 @@ export default function Screening() {
                 <span className="pill-green">✓ PII Sanitized</span>
                 <span className="pill-blue">✓ Anti-Injection Boundary Active</span>
               </div>
-              <label className="label">Sanitized Candidate Text (Auditable & Editable)</label>
+              <label className="label">Sanitized candidate text (auditable and editable)</label>
               <p className="text-xs text-slate-400 mb-1">Review the sanitized text below before scoring.</p>
               <textarea
                 value={cleaned}
@@ -254,21 +253,20 @@ export default function Screening() {
                 disabled={busy}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono text-xs leading-relaxed resize-y"
               />
-              <label className="flex items-start gap-2.5 mt-4 mb-1 text-xs text-slate-600 font-normal">
+              <label className="flex items-start gap-2 mt-4 mb-1 text-xs text-slate-600 font-normal">
                 <input type="checkbox" checked={consent} disabled={busy} onChange={e => setConsent(e.target.checked)} className="mt-1" />
                 <span>I have verified the sanitized text and authorize evaluation.</span>
               </label>
-              <button className="btn-primary" disabled={!consent || busy} onClick={score}>Score Candidate with AI Scorer</button>
+              <button className="btn-primary" disabled={!consent || busy} onClick={score}>Score candidate</button>
             </div>
           )}
         </section>
 
         <section className="panel">
-          <h2 className="panel-title">2. Verified Evidence Card</h2>
+          <h2 className="panel-title">2. Verified evidence card</h2>
 
           {!card ? (
-            <div className="text-center py-16 text-slate-400">
-              <div className="text-3xl mb-3 text-slate-300">📊</div>
+            <div className="py-16 text-center">
               <h3 className="text-sm font-medium text-slate-500">Scorecard will generate here</h3>
               <p className="text-xs mt-2 max-w-[320px] mx-auto">Every awarded score includes the exact verbatim quote from the candidate CV.</p>
             </div>
@@ -279,11 +277,11 @@ export default function Screening() {
       </div>
 
       {card && (
-        <div className="fixed bottom-0 left-52 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-6 py-3 flex items-center justify-between shadow-[0_-4px_12px_rgba(0,0,0,0.03)] z-50 max-lg:left-0 max-lg:flex-col max-lg:gap-2.5 max-lg:items-stretch">
-          <div className="flex items-center gap-4 flex-1">
+        <div className="fixed bottom-0 left-52 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between z-50 max-lg:left-0 max-lg:flex-col max-lg:gap-2 max-lg:items-stretch">
+          <div className="flex items-center gap-4 flex-1 max-lg:flex-col max-lg:items-stretch">
             <div className="shrink-0">
-              <strong className="text-[13px] block">3. Human Recruiter Decision</strong>
-              <span className="text-xs text-slate-400">AI recommendations require human review under NYC LL144 & EU AI Act.</span>
+              <strong className="text-[13px] block">3. Human recruiter decision</strong>
+              <span className="text-xs text-slate-400">AI recommendations require human review under NYC LL144 and EU AI Act.</span>
             </div>
             <input
               value={notes}
@@ -291,14 +289,14 @@ export default function Screening() {
               disabled={!!record}
               placeholder="Add recruiter review notes (optional)..."
               maxLength={2000}
-              className="flex-1 min-w-[200px] px-3 py-2 border border-slate-200 rounded-md text-sm"
+              className="input flex-1 min-w-[200px]"
             />
           </div>
-          <div className="flex items-center gap-2.5">
-            {record && <span className="text-xs text-emerald-600 font-medium">✓ {record.decision === 'APPROVE' ? 'Approved for Interview' : 'Rejected'} (Saved)</span>}
-            <button className="btn-approve" disabled={!!record} onClick={() => decide('APPROVE')}>Approve (Interview)</button>
+          <div className="flex items-center gap-2">
+            {record && <span className="text-xs text-emerald-600 font-medium">✓ {record.decision === 'APPROVE' ? 'Approved for interview' : 'Rejected'} (saved)</span>}
+            <button className="btn-approve" disabled={!!record} onClick={() => decide('APPROVE')}>Approve for interview</button>
             <button className="btn-reject" disabled={!!record} onClick={() => decide('REJECT')}>Reject</button>
-            {record && <button className="bg-white text-slate-600 border border-slate-200 px-3.5 py-2 rounded-md text-sm font-medium hover:bg-slate-50" onClick={download}>Download Review JSON</button>}
+            {record && <button className="btn-ghost" onClick={download}>Download review JSON</button>}
           </div>
         </div>
       )}

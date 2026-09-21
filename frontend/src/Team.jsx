@@ -51,7 +51,7 @@ export default function Team({ session }) {
           : 'Only admins can manage the team. Here is the current roster.'} />
 
       {isAdmin && (
-        <form onSubmit={add} className="bg-white border border-slate-200 rounded-xl p-4 mb-5 flex gap-3 items-end max-sm:flex-col">
+        <form onSubmit={add} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex gap-3 items-end max-sm:flex-col">
           <label className="flex-1 block">
             <span className="label">Email of an existing account</span>
             <input value={email} onChange={e => setEmail(e.target.value)} type="email" required
@@ -69,8 +69,9 @@ export default function Team({ session }) {
         </form>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200">
               <th className="px-4 py-3 font-semibold">Email</th>
@@ -108,6 +109,7 @@ export default function Team({ session }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

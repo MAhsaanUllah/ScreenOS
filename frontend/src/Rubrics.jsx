@@ -15,8 +15,9 @@ export default function Rubrics() {
         description={rubric ? rubric.job : 'Loading rubric...'} />
 
       {rubric && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200">
                 <th className="px-4 py-3 font-semibold w-16">Points</th>
@@ -36,6 +37,7 @@ export default function Rubrics() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
             Total 100 points · Scores must be backed by verbatim quotes · MET = full, PARTIALLY_MET = half, NOT_FOUND = zero.
           </div>

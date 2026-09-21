@@ -12,10 +12,10 @@ const FILTERS = [
 ]
 
 const STATUS_PILL = {
-  PENDING: 'bg-slate-100 text-slate-600',
-  SCORED: 'bg-blue-50 text-blue-700',
-  APPROVE: 'bg-emerald-50 text-emerald-700',
-  REJECT: 'bg-rose-50 text-rose-700'
+  PENDING: 'bg-slate-100 text-slate-600 border border-slate-200',
+  SCORED: 'bg-brand-50 text-brand-700 border border-brand-200',
+  APPROVE: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  REJECT: 'bg-red-50 text-red-700 border border-red-200'
 }
 
 export default function Queue() {
@@ -52,19 +52,20 @@ export default function Queue() {
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium ${
-              filter === f.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-md text-xs font-medium border transition-colors ${
+              filter === f.id ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >{f.label} {f.id === 'ALL' && `(${reviews.length})`}</button>
         ))}
       </div>
 
       {shown.length === 0 ? (
-        <EmptyState icon="🗂️" title="No candidates here yet."
-          description="Upload & screen your first CV to fill the queue." />
+        <EmptyState title="No candidates here yet."
+          description="Upload and screen your first CV to fill the queue." />
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200">
                 <th className="px-4 py-3 font-semibold">Candidate</th>
@@ -88,19 +89,20 @@ export default function Queue() {
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => openReview(r.id)}
-                      className="text-xs text-blue-600 font-medium hover:underline"
+                      className="link-btn"
                     >{r.status === 'PENDING' ? 'View preview' : 'Open scorecard'}</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {open && (
         <div className="fixed inset-0 bg-black/30 flex items-start justify-center p-6 z-50 overflow-y-auto" onClick={() => setOpen(null)}>
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-3xl w-full mt-10" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-lg border border-slate-200 max-w-3xl w-full mt-10" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 pt-5">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs text-slate-500">{open}</span>
@@ -115,7 +117,7 @@ export default function Queue() {
                 <div>
                   <Scorecard card={detail.card} />
                   {detail.reviewer_notes && (
-                    <div className="mt-5 p-3.5 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="mt-5 p-3 bg-slate-50 border border-slate-200 rounded-md">
                       <strong className="text-xs text-slate-500 uppercase block mb-1">Recruiter Notes</strong>
                       <p className="text-[13px] text-slate-900 whitespace-pre-wrap">{detail.reviewer_notes}</p>
                     </div>

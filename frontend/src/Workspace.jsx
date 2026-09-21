@@ -38,7 +38,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="h-1 bg-blue-600" />
+      <div className="h-1 bg-brand-600" />
       <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <strong className="text-[15px] font-bold tracking-tight font-display">SCREENOS</strong>
@@ -50,7 +50,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
             <select
               value={session.org.id}
               onChange={e => switchOrg(e.target.value)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-slate-50 focus:outline-none focus:border-blue-500"
+              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-slate-50 focus:outline-none focus:border-brand-500"
               title="Switch organization"
             >
               {session.orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
@@ -58,7 +58,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           )}
           {error && <span className="text-xs text-red-600">{error}</span>}
           <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+            <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-semibold flex items-center justify-center">
               {session.user.email.charAt(0).toUpperCase()}
             </span>
             <button onClick={onSwitch} className="text-xs text-slate-500 hover:text-slate-900">Sign out</button>
@@ -73,7 +73,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
               key={item.id}
               onClick={() => setView(item.id)}
               className={`text-left text-sm px-3 py-2 rounded-md font-medium ${
-                view === item.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                view === item.id ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >{item.label}</button>
           ) : (
