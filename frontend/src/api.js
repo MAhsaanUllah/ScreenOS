@@ -4,16 +4,16 @@ const OFFLINE = 'Cannot reach the server. Please check your connection and try a
 
 export async function api(path, options = {}) {
   const session = loadSession()
+  const isForm = options.body instanceof FormData
+  const h = new Headers()
+  h.set('X-Screenos', '1')
+  if (session && session.token) h.set('Authorization', `Bearer ${session.token}`)
+  if (options.headers) {
+    for (const [k, v] of Object.entries(options.headers)) h.set(k, v)
+  }
   let response
   try {
-    response = await fetch(path, {
-      ...options,
-      headers: {
-        'X-Screenos': '1',
-        ...(session && session.token ? { Authorization: `Bearer ${session.token}` } : {}),
-        ...(options.headers || {})
-      }
-    })
+    response = await fetch(path, { ...options, headers: h })
   } catch {
     throw new Error(OFFLINE)
   }
