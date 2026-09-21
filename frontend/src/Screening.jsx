@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { api } from './api.js'
-import { Scorecard } from './Criterion.jsx'
+import { Scorecard, VerdictBadge } from './Criterion.jsx'
 import { PageHeader, Alert } from './ui.jsx'
+
+const STEPS = ['Upload', 'Review PII', 'Score', 'Decision']
 
 const SAMPLE = `FICTIONAL SAMPLE - not a real applicant
 Amina Example
@@ -12,41 +14,68 @@ Created document search that returned exact source quotes with each answer.
 Designed a database with separate customer access and tested access checks.
 Added 32 automated tests and deployed the service with failure alerts.`
 
+function StepBar({ current }) {
+  return (
+    <div className="flex items-center gap-1 mb-6">
+      {STEPS.map((label, i) => {
+        const n = i + 1
+        const active = n === current
+        const done = n < current
+        return (
+          <div key={label} className="flex items-center gap-1">
+            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold border ${
+              done ? 'bg-emerald-600 text-white border-emerald-600' :
+              active ? 'bg-brand-600 text-white border-brand-600' :
+              'bg-white text-slate-400 border-slate-200'
+            }`}>{done ? '\u2713' : n}</span>
+            <span className={`text-xs font-medium ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
+            {i < STEPS.length - 1 && <span className="w-6 h-px bg-slate-200 mx-1" />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Screening() {
   const fileInput = useRef(null)
-  const [token, setToken] = useState(null)
-  const [busy, setBusy] = useState(false)
+  const [step, setStep] = useState(1)
   const [fileName, setFileName] = useState('No file selected')
-  const [cleaned, setCleaned] = useState('')
-  const [consent, setConsent] = useState(false)
-  const [notice, setNotice] = useState({ text: 'Upload a CV (PDF, DOCX, or TXT) to begin local intake.', error: false })
+  const [rawText, setRawText] = useState('')
+  const [detectedPii, setDetectedPii] = useState([])
+  const [selectedPii, setSelectedPii] = useState(new Set())
+  const [reviewId, setReviewId] = useState(null)
+  const [cleanedText, setCleanedText] = useState('')
   const [card, setCard] = useState(null)
   const [record, setRecord] = useState(null)
   const [notes, setNotes] = useState('')
-  const [batchFiles, setBatchFiles] = useState([])
-  const [batch, setBatch] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState({ text: 'Upload a CV (PDF, DOCX, or TXT) to begin.', error: false })
 
   function status(text, error) { setNotice({ text, error: !!error }) }
 
   function loadSample() {
     const file = new File([SAMPLE], '01_strong.txt', { type: 'text/plain' })
     if (fileInput.current) fileInput.current.files = [file]
-    setFileName('Selected: 01_strong.txt')
-    document.getElementById('name-input').value = 'Amina Example'
-    status('Sample CV loaded: 01_strong.txt. Click "Prepare and clean resume".')
+    setFileName('01_strong.txt')
+    status('Sample CV loaded. Click "Upload and scan".')
   }
 
-  async function prepare(e) {
+  // Step 1: upload file → extract text + detect PII
+  async function handleUpload(e) {
     e.preventDefault()
     const form = new FormData(e.target)
-    setBusy(true); setToken(null); setCard(null); setRecord(null); setNotes('')
-    status('Extracting text and applying PII guardrails...')
+    setBusy(true)
+    status('Extracting text and scanning for personal information...')
     try {
       const data = await api('/api/preview', { method: 'POST', body: form })
-      setToken(data.review_id)
-      setCleaned(data.cleaned_text)
-      setConsent(false)
-      status('PII sanitized and candidate hash generated. Review text and authorize scoring.')
+      setRawText(data.raw_text)
+      setDetectedPii(data.detected_pii)
+      const allIdx = new Set(data.detected_pii.map((_, i) => i))
+      setSelectedPii(allIdx)
+      setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText('')
+      setStep(2)
+      status(`Found ${data.detected_pii.length} personal detail${data.detected_pii.length === 1 ? '' : 's'}. Review and confirm what to remove.`)
     } catch (err) {
       status(err.message, true)
     } finally {
@@ -54,17 +83,20 @@ export default function Screening() {
     }
   }
 
-  async function uploadBatch() {
-    if (!batchFiles.length || busy) return
+  // Step 2: confirm PII removals → store review
+  async function handleConfirmPii() {
     setBusy(true)
-    status('Uploading batch and extracting reviews...')
+    status('Applying redactions and preparing candidate record...')
     try {
+      const items = [...selectedPii].map(i => detectedPii[i])
       const form = new FormData()
-      batchFiles.forEach(f => form.append('file', f))
-      const result = await api('/api/preview/batch', { method: 'POST', body: form })
-      setBatch(result)
-      setToken(null); setCard(null); setRecord(null); setNotes('')
-      status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
+      form.append('raw_text', rawText)
+      form.append('remove_pii', JSON.stringify(items))
+      const data = await api('/api/preview/confirm', { method: 'POST', body: form })
+      setReviewId(data.review_id)
+      setCleanedText(data.cleaned_text)
+      setStep(3)
+      status('Redactions applied. Review the sanitized text and score the candidate.')
     } catch (err) {
       status(err.message, true)
     } finally {
@@ -72,31 +104,20 @@ export default function Screening() {
     }
   }
 
-  async function reviewFromBatch(row) {
-    try {
-      const detail = await api(`/api/reviews/${row.review_id}`)
-      setToken(row.review_id)
-      setCleaned(detail.cleaned_text)
-      setConsent(false)
-      setCard(null); setRecord(null); setNotes('')
-      status(`Loaded ${row.filename} (name guessed as "${row.name_guess}"). Correct the sanitized text if needed, then authorize scoring.`)
-    } catch (err) {
-      status(err.message, true)
-    }
-  }
-
-  async function score() {
-    if (!token || !consent || busy) return
+  // Step 3: score candidate
+  async function handleScore() {
+    if (!reviewId || busy) return
     setBusy(true)
-    status('Evaluating candidate against job rubric... Please wait a few moments.')
+    status('Evaluating candidate against job rubric...')
     try {
-      const d = await api(`/api/reviews/${token}/score`, {
+      const d = await api(`/api/reviews/${reviewId}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cleaned_text: cleaned })
+        body: JSON.stringify({ cleaned_text: cleanedText })
       })
       setCard(d)
-      status('Evidence card ready. Review supporting quotes and make your screening decision.')
+      setStep(4)
+      status('Evidence card ready. Review quotes and make your decision.')
     } catch (err) {
       status(err.message, true)
     } finally {
@@ -104,15 +125,16 @@ export default function Screening() {
     }
   }
 
-  async function decide(decision) {
+  // Step 4: decide
+  async function handleDecide(decision) {
     try {
-      const rec = await api(`/api/reviews/${token}/decision`, {
+      const rec = await api(`/api/reviews/${reviewId}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decision, notes })
       })
       setRecord(rec)
-      status(`Decision recorded. You may download the audit JSON or screen another candidate.`)
+      status('Decision recorded.')
     } catch (err) {
       status(err.message, true)
     }
@@ -123,181 +145,176 @@ export default function Screening() {
     const blob = new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = `screenos-review-${token.slice(0, 8)}.json`
-    a.click()
+    a.href = url; a.download = `screenos-review-${reviewId.slice(0, 8)}.json`; a.click()
     URL.revokeObjectURL(url)
   }
 
+  function togglePii(idx) {
+    setSelectedPii(prev => {
+      const next = new Set(prev)
+      next.has(idx) ? next.delete(idx) : next.add(idx)
+      return next
+    })
+  }
+
+  const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year' }
+
   return (
     <div className="max-w-[1400px] mx-auto">
-      <PageHeader eyebrow="High-trust recruiter workspace" title="Evidence first. Human decision."
-        description="Screen CVs against verifiable requirements. Positive points require direct quotes." />
+      <PageHeader
+        eyebrow="High-trust recruiter workspace"
+        title="Evidence first. Human decision."
+        description="Screen CVs against verifiable requirements. Positive points require direct quotes."
+      />
 
       <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
-      <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
-        <section className="panel">
-          <h2 className="panel-title">1. Intake and safety redaction</h2>
+      <StepBar current={step} />
 
-          <form onSubmit={prepare}>
-            <div
-              className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
-              onClick={() => fileInput.current?.click()}
-            >
-              <strong className="block text-sm">Choose a resume file or drag it here</strong>
-              <p className="text-xs text-slate-400 mt-1">Supported: PDF, DOCX, TXT (up to 10 MB)</p>
-              <input ref={fileInput} name="file" id="file-input" type="file" accept=".pdf,.docx,.txt" required className="hidden" />
+      {/* Step 1: Upload */}
+      {step === 1 && (
+        <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
+          <section className="panel">
+            <h2 className="panel-title">Upload CV</h2>
+            <form onSubmit={handleUpload}>
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors"
+                onClick={() => fileInput.current?.click()}
+              >
+                <strong className="block text-sm">Choose a resume file or drag it here</strong>
+                <p className="text-xs text-slate-400 mt-1">PDF, DOCX or TXT, up to 10 MB</p>
+                <input ref={fileInput} name="file" type="file" accept=".pdf,.docx,.txt" required className="hidden" />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-slate-400">{fileName}</span>
+                <button type="button" onClick={loadSample} className="link-btn text-xs">Load sample CV</button>
+              </div>
+              <button type="submit" disabled={busy} className="btn-primary mt-4">Upload and scan</button>
+            </form>
+          </section>
+          <section className="panel">
+            <h2 className="panel-title">How it works</h2>
+            <ol className="text-sm text-slate-600 space-y-3 list-decimal list-inside">
+              <li>Upload a CV. The system extracts text and finds personal details automatically.</li>
+              <li>Review detected PII and confirm what to remove.</li>
+              <li>AI scores the candidate against the job rubric with verbatim evidence.</li>
+              <li>You make the final hiring decision. Every score includes the exact quote from the CV.</li>
+            </ol>
+          </section>
+        </div>
+      )}
+
+      {/* Step 2: Review PII */}
+      {step === 2 && (
+        <div className="max-w-3xl">
+          <section className="panel">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="panel-title mb-0">Detected personal information</h2>
+              <span className="text-xs text-slate-400">{selectedPii.size} of {detectedPii.length} selected</span>
             </div>
-
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-slate-400">{fileName}</span>
-              <button type="button" onClick={loadSample} className="link-btn">Load sample CV (01_strong.txt)</button>
-            </div>
-
-            <label className="label mt-4">Candidate full name (to redact)</label>
-            <input id="name-input" name="name" required placeholder="e.g. Amina Example" maxLength={200}
-              className="input" />
-            <p className="text-xs text-slate-400 mt-1">Required to strip name references and prevent demographic bias.</p>
-
-            <details className="mt-4 mb-3 p-2 bg-slate-50 border border-slate-200 rounded-md">
-              <summary className="cursor-pointer text-xs font-medium text-slate-600">Additional identity redaction (optional)</summary>
-              <label className="label mt-3">Address to redact</label>
-              <input name="address" placeholder="e.g. Gujranwala, Pakistan" maxLength={500}
-                className="input" />
-              <label className="label mt-3">Graduation years to redact</label>
-              <input name="years" placeholder="e.g. 2022, 2026"
-                className="input" />
-            </details>
-
-            <button type="submit" disabled={busy} className="btn-primary mt-3">Prepare and clean resume</button>
-          </form>
-
-          <details className="mt-6 border border-slate-200 rounded-lg p-4 open:pb-4">
-            <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">Bulk import (ZIP or multiple files)</summary>
-            <label className="block text-xs text-slate-500 mt-2 mb-2">
-              Drop a ZIP, or select several PDF, DOCX or TXT files. Names are guessed from filenames and redacted automatically. Review each one below before scoring.
-            </label>
-            <input
-              type="file"
-              multiple
-              accept=".zip,.pdf,.docx,.txt"
-              onChange={e => setBatchFiles([...e.target.files])}
-              className="block text-sm mb-2"
-            />
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={uploadBatch} disabled={busy || !batchFiles.length} className="btn-primary">
-                Import {batchFiles.length ? `${batchFiles.length} file${batchFiles.length === 1 ? '' : 's'}` : ''}
-              </button>
-              {batch && (
-                <span className="text-xs text-slate-500">
-                  {batch.accepted} accepted, {batch.skipped.length} skipped
-                </span>
-              )}
-            </div>
-
-            {batch && (batch.skipped.length > 0 || batch.reviews.length > 0) && (
-              <div className="mt-4">
-                {batch.reviews.length > 0 && (
-                  <div className="border border-slate-200 rounded-md overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">File</th>
-                          <th className="px-3 py-2">Guessed name</th>
-                          <th className="px-3 py-2 text-right">Review</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {batch.reviews.map(r => (
-                          <tr key={r.review_id}>
-                            <td className="px-3 py-2 text-slate-700">{r.filename}</td>
-                            <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
-                            <td className="px-3 py-2 text-right">
-                              <button onClick={() => reviewFromBatch(r)} className="link-btn">
-                                Open review
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {batch.skipped.length > 0 && (
-                  <div className="mt-2">
-                    {batch.skipped.map(s => (
-                      <p key={s.filename} className="text-xs text-red-600">
-                        Skipped: {s.filename}. {s.reason}
-                      </p>
+            {detectedPii.length === 0 ? (
+              <p className="text-sm text-slate-500">No personal details detected. You can continue to scoring.</p>
+            ) : (
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 bg-slate-50">
+                      <th className="px-4 py-3 w-10">Remove</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detectedPii.map((item, i) => (
+                      <tr key={i} className="border-b border-slate-100 last:border-0">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedPii.has(i)}
+                            onChange={() => togglePii(i)}
+                            className="rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-xs font-medium text-slate-600">{piiTypeLabel[item.type] || item.type}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-800">{item.value}</td>
+                      </tr>
                     ))}
-                  </div>
-                )}
+                  </tbody>
+                </table>
               </div>
             )}
-          </details>
-
-          {token && (
-            <div className="mt-6">
-              <div className="flex gap-2 mb-4">
-                <span className="pill-green">✓ PII Sanitized</span>
-                <span className="pill-blue">✓ Anti-Injection Boundary Active</span>
-              </div>
-              <label className="label">Sanitized candidate text (auditable and editable)</label>
-              <p className="text-xs text-slate-400 mb-1">Review the sanitized text below before scoring.</p>
-              <textarea
-                value={cleaned}
-                onChange={e => { setCleaned(e.target.value); setConsent(false) }}
-                rows={12}
-                maxLength={100000}
-                disabled={busy}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono text-xs leading-relaxed resize-y"
-              />
-              <label className="flex items-start gap-2 mt-4 mb-1 text-xs text-slate-600 font-normal">
-                <input type="checkbox" checked={consent} disabled={busy} onChange={e => setConsent(e.target.checked)} className="mt-1" />
-                <span>I have verified the sanitized text and authorize evaluation.</span>
-              </label>
-              <button className="btn-primary" disabled={!consent || busy} onClick={score}>Score candidate</button>
+            <div className="flex items-center gap-3 mt-4">
+              <button onClick={handleConfirmPii} disabled={busy} className="btn-primary">
+                {busy ? 'Processing...' : 'Remove selected and continue'}
+              </button>
+              <button onClick={() => setStep(1)} className="btn-ghost">Back to upload</button>
             </div>
-          )}
-        </section>
+          </section>
+        </div>
+      )}
 
-        <section className="panel">
-          <h2 className="panel-title">2. Verified evidence card</h2>
-
-          {!card ? (
-            <div className="py-16 text-center">
-              <h3 className="text-sm font-medium text-slate-500">Scorecard will generate here</h3>
-              <p className="text-xs mt-2 max-w-[320px] mx-auto">Every awarded score includes the exact verbatim quote from the candidate CV.</p>
+      {/* Step 3: Score */}
+      {step === 3 && (
+        <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
+          <section className="panel">
+            <h2 className="panel-title">Sanitized candidate text</h2>
+            <p className="text-xs text-slate-400 mb-2">Review the text below. Edit if needed, then score.</p>
+            <textarea
+              value={cleanedText}
+              onChange={e => setCleanedText(e.target.value)}
+              rows={14}
+              maxLength={100000}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono text-xs leading-relaxed resize-y"
+            />
+            <div className="flex items-center gap-3 mt-4">
+              <button className="btn-primary" disabled={busy} onClick={handleScore}>
+                {busy ? 'Scoring...' : 'Score candidate'}
+              </button>
+              <button onClick={() => setStep(2)} className="btn-ghost">Back to PII review</button>
             </div>
-          ) : (
-            <Scorecard card={card} />
-          )}
-        </section>
-      </div>
+          </section>
+          <section className="panel">
+            <h2 className="panel-title">Evidence card</h2>
+            <p className="text-xs text-slate-400">The scorecard will appear here after scoring.</p>
+          </section>
+        </div>
+      )}
 
-      {card && (
-        <div className="fixed bottom-0 left-52 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between z-50 max-lg:left-0 max-lg:flex-col max-lg:gap-2 max-lg:items-stretch">
-          <div className="flex items-center gap-4 flex-1 max-lg:flex-col max-lg:items-stretch">
-            <div className="shrink-0">
-              <strong className="text-[13px] block">3. Human recruiter decision</strong>
-              <span className="text-xs text-slate-400">AI recommendations require human review under NYC LL144 and EU AI Act.</span>
-            </div>
-            <input
+      {/* Step 4: Decide */}
+      {step === 4 && (
+        <div className="grid grid-cols-[1fr_360px] gap-6 items-start max-lg:grid-cols-1">
+          <section className="panel">
+            <h2 className="panel-title">Evidence card</h2>
+            {card && <Scorecard card={card} />}
+          </section>
+          <section className="panel">
+            <h2 className="panel-title">Your decision</h2>
+            <p className="text-xs text-slate-400 mb-4">AI recommendations require human review under NYC LL144 and EU AI Act.</p>
+            <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               disabled={!!record}
               placeholder="Add recruiter review notes (optional)..."
               maxLength={2000}
-              className="input flex-1 min-w-[200px]"
+              rows={4}
+              className="input resize-y mb-4"
             />
-          </div>
-          <div className="flex items-center gap-2">
-            {record && <span className="text-xs text-emerald-600 font-medium">✓ {record.decision === 'APPROVE' ? 'Approved for interview' : 'Rejected'} (saved)</span>}
-            <button className="btn-approve" disabled={!!record} onClick={() => decide('APPROVE')}>Approve for interview</button>
-            <button className="btn-reject" disabled={!!record} onClick={() => decide('REJECT')}>Reject</button>
-            {record && <button className="btn-ghost" onClick={download}>Download review JSON</button>}
-          </div>
+            <div className="flex flex-col gap-2">
+              <button className="btn-approve" disabled={!!record} onClick={() => handleDecide('APPROVE')}>Approve for interview</button>
+              <button className="btn-reject" disabled={!!record} onClick={() => handleDecide('REJECT')}>Reject</button>
+            </div>
+            {record && (
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-xs text-emerald-600 font-medium mb-3">
+                  {record.decision === 'APPROVE' ? 'Approved for interview' : 'Rejected'} and saved.
+                </p>
+                <div className="flex gap-2">
+                  <button className="btn-ghost" onClick={download}>Download review JSON</button>
+                  <button className="btn-ghost" onClick={() => { setStep(1); setCard(null); setRecord(null); setNotes(''); setFileName('No file selected'); status('Upload a CV to begin.'); }}>Screen another</button>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>
