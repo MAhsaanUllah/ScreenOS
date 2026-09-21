@@ -63,12 +63,12 @@ export default function Dashboard({ session, onNavigate }) {
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-brand-50 via-white to-slate-50 p-8">
-        <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-brand-300 rounded-full opacity-30 pointer-events-none" style={{ filter: 'blur(100px)' }} />
-        <div className="absolute -bottom-32 -left-16 w-[350px] h-[350px] bg-emerald-300 rounded-full opacity-25 pointer-events-none" style={{ filter: 'blur(100px)' }} />
-        <div className="absolute top-1/3 left-1/4 w-[280px] h-[280px] bg-amber-200 rounded-full opacity-20 pointer-events-none" style={{ filter: 'blur(80px)' }} />
-        {/* White glow behind clock — must be on the right, not left of time */}
-        <div className="absolute -top-6 -right-6 w-[380px] h-[380px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 35%, transparent 72%)' }} />
-        <div className="relative flex items-start justify-between">
+        <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-brand-300 rounded-full opacity-30 pointer-events-none z-0" style={{ filter: 'blur(100px)' }} />
+        <div className="absolute -bottom-32 -left-16 w-[350px] h-[350px] bg-emerald-300 rounded-full opacity-25 pointer-events-none z-0" style={{ filter: 'blur(100px)' }} />
+        <div className="absolute top-1/3 left-1/4 w-[280px] h-[280px] bg-amber-200 rounded-full opacity-20 pointer-events-none z-0" style={{ filter: 'blur(80px)' }} />
+        {/* White glow — behind clock/Blobatar on the right, subtle so it doesn't cover Blobatar */}
+        <div className="absolute -top-8 right-0 w-[360px] h-[360px] rounded-full pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.35) 45%, transparent 72%)' }} />
+        <div className="relative z-10 flex items-start justify-between">
           <div>
             <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
             <h1 className="text-3xl font-bold tracking-tight font-display text-slate-900 mb-2">
@@ -78,12 +78,12 @@ export default function Dashboard({ session, onNavigate }) {
               Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
             </p>
           </div>
-          <div className="flex items-center gap-6 shrink-0">
+          <div className="flex items-center gap-6 shrink-0 relative z-10">
             <LiveClock />
-            <Blobatar name={session.org.name} animate="hover" />
+            <div className="relative z-10"><Blobatar name={session.org.name} animate="hover" /></div>
           </div>
         </div>
-        <div className="relative flex items-center gap-3 mt-6">
+        <div className="relative z-10 flex items-center gap-3 mt-6">
           <button onClick={() => onNavigate('upload')} className="btn-primary">Start screening</button>
           <button onClick={() => onNavigate('queue')} className="btn-ghost">View queue</button>
           <button onClick={() => onNavigate('analytics')} className="btn-ghost">Analytics</button>
