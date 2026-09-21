@@ -22,8 +22,20 @@
   .btn-reject {
     @apply bg-white text-red-600 border border-red-200 px-4 py-2 rounded-md font-semibold text-sm cursor-pointer hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed;
   }
+  .btn-ghost {
+    @apply bg-white text-slate-600 border border-slate-200 px-3.5 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .input {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-400;
+  }
+  .label {
+    @apply block text-[13px] font-semibold text-slate-900 mb-1;
+  }
   .panel {
     @apply bg-white border border-slate-200 rounded-xl p-6 shadow-sm;
+  }
+  .panel-title {
+    @apply text-[15px] font-semibold mb-4;
   }
   .pill-green {
     @apply bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-2 py-0.5 rounded;

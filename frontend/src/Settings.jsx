@@ -90,15 +90,15 @@ export default function Settings({ session, onSessionChange }) {
 
       <div className="flex flex-col gap-6 max-w-3xl">
         <section className="bg-white border border-slate-200 rounded-xl p-5">
-          <h2 className="text-[15px] font-semibold mb-4">Organization</h2>
+          <h2 className="panel-title">Organization</h2>
           {org && (
             <div className="flex flex-col gap-4">
               {isAdmin && (
                 <form onSubmit={rename} className="flex gap-3 items-end">
                   <label className="flex-1 block">
-                    <span className="block text-xs font-semibold text-slate-600 mb-1">Organization name</span>
+                    <span className="label">Organization name</span>
                     <input value={name} onChange={e => setName(e.target.value)} maxLength={80} required
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" />
+                      className="input" />
                   </label>
                   <button className="btn-primary" disabled={busy}>Rename</button>
                 </form>
@@ -111,15 +111,15 @@ export default function Settings({ session, onSessionChange }) {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-5">
-          <h2 className="text-[15px] font-semibold mb-4">Password</h2>
+          <h2 className="panel-title">Password</h2>
           {passMsg && <Alert tone={passMsg.startsWith('Password changed') ? 'success' : 'error'}>{passMsg}</Alert>}
           <form onSubmit={changePassword} className="flex flex-col gap-3">
             <input type="password" placeholder="Current password" minLength={8} required
               value={pass.current} onChange={e => setPass({ ...pass, current: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm" />
+              className="input" />
             <input type="password" placeholder="New password (min 8 characters)" minLength={8} required
               value={pass.next} onChange={e => setPass({ ...pass, next: e.target.value })}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm" />
+              className="input" />
             <div className="flex items-center gap-3">
               <button className="btn-primary" disabled={busy}>Change password</button>
             </div>
@@ -127,7 +127,7 @@ export default function Settings({ session, onSessionChange }) {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-5">
-          <h2 className="text-[15px] font-semibold mb-4">AI Provider Keys</h2>
+          <h2 className="panel-title">AI Provider Keys</h2>
           <p className="text-xs text-slate-500 mb-4">
             Keys are masked after saving and never shown again. Two configured providers are used in order, so the second acts as a fallback when one fails.
           </p>
@@ -155,13 +155,13 @@ export default function Settings({ session, onSessionChange }) {
                         disabled={!spec.needs_key}
                         value={drafts[spec.id]?.key || ''}
                         onChange={e => setDraft(spec.id, 'key', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        className="input flex-1 max-sm:flex-none"
                       />
                       <input
                         placeholder="Model name (default if blank)"
                         value={drafts[spec.id]?.model || ''}
                         onChange={e => setDraft(spec.id, 'model', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        className="input flex-1 max-sm:flex-none"
                       />
                       <button className="btn-primary" disabled={busy || (spec.needs_key && !drafts[spec.id]?.key)}
                         onClick={() => save(spec.id, spec.needs_key)}>Save</button>

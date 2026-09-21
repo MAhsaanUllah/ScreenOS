@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from './api.js'
 import { saveSession } from './session.js'
+import { Alert } from './ui.jsx'
 
 export default function Login({ onLogin }) {
   const [mode, setMode] = useState('login')
@@ -36,44 +37,57 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-2xl font-bold tracking-tight text-slate-900">SCREENOS</div>
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-500 text-white text-lg font-bold font-display mb-4">S</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-900 font-display">SCREENOS</div>
           <p className="text-sm text-slate-500 mt-1">Fair & Evidence-Based Screening</p>
         </div>
 
         <form onSubmit={submit} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           {mode === 'register' && (
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">Organization name</label>
+            <div className="mb-4">
+              <label htmlFor="org-name" className="label">Organization name</label>
+              <input
+                id="org-name"
+                value={orgName}
+                onChange={e => setOrgName(e.target.value)}
+                placeholder="Acme Corp"
+                maxLength={80}
+                required
+                className="input"
+              />
+            </div>
           )}
-          {mode === 'register' && (
+
+          <div className="mb-4">
+            <label htmlFor="email" className="label">Email</label>
             <input
-              value={orgName}
-              onChange={e => setOrgName(e.target.value)}
-              placeholder="Acme Corp"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mb-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              id="email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              required
+              className="input"
             />
-          )}
+          </div>
 
-          <label className="block text-sm font-semibold text-slate-900 mb-1.5">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mb-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-          />
+          <div className="mb-4">
+            <label htmlFor="password" className="label">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              className="input"
+            />
+          </div>
 
-          <label className="block text-sm font-semibold text-slate-900 mb-1.5">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mb-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-          />
+          {error && <Alert tone="error">{error}</Alert>}
 
-          {error && <p role="alert" className="text-sm text-red-600 mb-4">{error}</p>}
-
-          <button type="submit" disabled={busy} className="w-full bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-md hover:bg-blue-700 disabled:opacity-50">
+          <button type="submit" disabled={busy} className="btn-primary">
             {busy ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create workspace'}
           </button>
 

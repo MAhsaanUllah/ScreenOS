@@ -138,7 +138,7 @@ export default function Screening() {
 
       <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
         <section className="panel">
-          <h2 className="text-[15px] font-semibold mb-4">1. Intake & Safety Redaction</h2>
+          <h2 className="panel-title">1. Intake & Safety Redaction</h2>
 
           <form onSubmit={prepare}>
             <div
@@ -156,19 +156,19 @@ export default function Screening() {
               <button type="button" onClick={loadSample} className="text-xs text-blue-600 underline">Load Sample CV (01_strong.txt)</button>
             </div>
 
-            <label className="block text-[13px] font-semibold mt-4 mb-1">Candidate Full Name (to redact)</label>
+            <label className="label mt-4">Candidate Full Name (to redact)</label>
             <input id="name-input" name="name" required placeholder="e.g. Amina Example" maxLength={200}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" />
+              className="input" />
             <p className="text-xs text-slate-400 mt-1">Required to strip name references and prevent demographic bias.</p>
 
             <details className="mt-4 mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded-md">
               <summary className="cursor-pointer text-xs font-medium text-slate-600">Additional Identity Redaction (Optional)</summary>
-              <label className="block text-[13px] font-semibold mt-3 mb-1">Address to redact</label>
+              <label className="label mt-3">Address to redact</label>
               <input name="address" placeholder="e.g. Gujranwala, Pakistan" maxLength={500}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" />
-              <label className="block text-[13px] font-semibold mt-3 mb-1">Graduation years to redact</label>
+                className="input" />
+              <label className="label mt-3">Graduation years to redact</label>
               <input name="years" placeholder="e.g. 2022, 2026"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" />
+                className="input" />
             </details>
 
             <button type="submit" disabled={busy} className="btn-primary mt-3">Prepare & Clean Resume</button>
@@ -244,7 +244,7 @@ export default function Screening() {
                 <span className="pill-green">✓ PII Sanitized</span>
                 <span className="pill-blue">✓ Anti-Injection Boundary Active</span>
               </div>
-              <label className="block text-[13px] font-semibold mb-1">Sanitized Candidate Text (Auditable & Editable)</label>
+              <label className="label">Sanitized Candidate Text (Auditable & Editable)</label>
               <p className="text-xs text-slate-400 mb-1">Review the sanitized text below before scoring.</p>
               <textarea
                 value={cleaned}
@@ -264,7 +264,7 @@ export default function Screening() {
         </section>
 
         <section className="panel">
-          <h2 className="text-[15px] font-semibold mb-4">2. Verified Evidence Card</h2>
+          <h2 className="panel-title">2. Verified Evidence Card</h2>
 
           {!card ? (
             <div className="text-center py-16 text-slate-400">

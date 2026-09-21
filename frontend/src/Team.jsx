@@ -53,15 +53,14 @@ export default function Team({ session }) {
       {isAdmin && (
         <form onSubmit={add} className="bg-white border border-slate-200 rounded-xl p-4 mb-5 flex gap-3 items-end max-sm:flex-col">
           <label className="flex-1 block">
-            <span className="block text-xs font-semibold text-slate-600 mb-1">Email of an existing account</span>
+            <span className="label">Email of an existing account</span>
             <input value={email} onChange={e => setEmail(e.target.value)} type="email" required
               placeholder="teammate@company.com"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm" />
+              className="input" />
           </label>
           <label className="block">
-            <span className="block text-xs font-semibold text-slate-600 mb-1">Role</span>
-            <select value={role} onChange={e => setRole(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
+            <span className="label">Role</span>
+            <select value={role} onChange={e => setRole(e.target.value)} className="input">
               <option value="RECRUITER">Recruiter</option>
               <option value="ADMIN">Admin</option>
             </select>
