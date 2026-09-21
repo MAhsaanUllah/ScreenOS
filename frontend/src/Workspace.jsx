@@ -3,6 +3,8 @@ import Screening from './Screening.jsx'
 import Queue from './Queue.jsx'
 import Analytics from './Analytics.jsx'
 import Rubrics from './Rubrics.jsx'
+import Team from './Team.jsx'
+import Settings from './Settings.jsx'
 import { saveSession } from './session.js'
 import { api } from './api.js'
 
@@ -11,8 +13,8 @@ const NAV = [
   { id: 'queue', label: 'Candidate Queue', ready: true },
   { id: 'analytics', label: 'Analytics', ready: true },
   { id: 'rubrics', label: 'Rubrics', ready: true },
-  { id: 'team', label: 'Team & Roles', phase: 3 },
-  { id: 'settings', label: 'Settings', phase: 3 }
+  { id: 'team', label: 'Team & Roles', ready: true },
+  { id: 'settings', label: 'Settings', ready: true }
 ]
 
 export default function Workspace({ session, onSwitch, onSessionChange }) {
@@ -90,6 +92,8 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           {view === 'queue' && <Queue key={session.org.id} />}
           {view === 'analytics' && <Analytics key={session.org.id} />}
           {view === 'rubrics' && <Rubrics />}
+          {view === 'team' && <Team key={session.org.id} session={session} />}
+          {view === 'settings' && <Settings key={session.org.id} session={session} />}
         </main>
       </div>
     </div>
