@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import { PageHeader } from './ui.jsx'
+import { PageHeader, Alert } from './ui.jsx'
 
 export default function Rubrics() {
   const [rubric, setRubric] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api('/api/rubric').then(setRubric).catch(err => alert(err.message))
+    api('/api/rubric').then(setRubric).catch(err => setError(err.message))
   }, [])
 
   return (
     <div className="max-w-[1400px] mx-auto">
       <PageHeader eyebrow="Scoring Criteria" title="Active Rubric"
         description={rubric ? rubric.job : 'Loading rubric...'} />
+
+      {error && <Alert tone="error">{error}</Alert>}
 
       {rubric && (
         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">

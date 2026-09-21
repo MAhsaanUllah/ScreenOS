@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import { PageHeader, Badge } from './ui.jsx'
+import { PageHeader, Badge, Alert } from './ui.jsx'
 
 const ROLE_BADGE = { ADMIN: 'bg-emerald-50 text-emerald-700', RECRUITER: 'bg-blue-50 text-blue-700' }
 
@@ -9,10 +9,11 @@ export default function Team({ session }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('RECRUITER')
   const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState({ text: '', error: false })
   const isAdmin = session.role === 'ADMIN'
 
   useEffect(() => {
-    api('/api/team').then(setMembers).catch(err => alert(err.message))
+    api('/api/team').then(setMembers).catch(err => setMsg({ text: err.message, error: true }))
   }, [])
 
   async function add(e) {
@@ -24,8 +25,9 @@ export default function Team({ session }) {
         body: JSON.stringify({ email, role })
       }))
       setEmail(''); setRole('RECRUITER')
+      setMsg({ text: 'Member added.', error: false })
     } catch (err) {
-      alert(err.message)
+      setMsg({ text: err.message, error: true })
     } finally {
       setBusy(false)
     }
@@ -39,7 +41,7 @@ export default function Team({ session }) {
         body: JSON.stringify({ role })
       }))
     } catch (err) {
-      alert(err.message)
+      setMsg({ text: err.message, error: true })
     }
   }
 
@@ -49,6 +51,8 @@ export default function Team({ session }) {
         description={isAdmin
           ? 'Members are added by email. You are an admin and can add members or change roles.'
           : 'Only admins can manage the team. Here is the current roster.'} />
+
+      {msg.text && <Alert tone={msg.error ? 'error' : 'success'}>{msg.text}</Alert>}
 
       {isAdmin && (
         <form onSubmit={add} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex gap-3 items-end max-sm:flex-col">

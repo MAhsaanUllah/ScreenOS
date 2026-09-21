@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { Scorecard, VerdictBadge } from './Criterion.jsx'
-import { PageHeader, EmptyState, Badge } from './ui.jsx'
+import { PageHeader, EmptyState, Badge, Alert } from './ui.jsx'
 
 const FILTERS = [
   { id: 'ALL', label: 'All' },
@@ -24,9 +24,10 @@ export default function Queue() {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(null)
   const [detail, setDetail] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api('/api/reviews').then(setReviews).catch(err => alert(err.message))
+    api('/api/reviews').then(setReviews).catch(err => setError(err.message))
   }, [])
 
   const shown = reviews.filter(r => filter === 'ALL' || r.status === filter)
@@ -36,7 +37,7 @@ export default function Queue() {
     try {
       setDetail(await api(`/api/reviews/${id}`))
     } catch (err) {
-      alert(err.message)
+      setError(err.message)
     } finally {
       setBusy(false)
     }
@@ -46,6 +47,8 @@ export default function Queue() {
     <div className="max-w-[1400px] mx-auto">
       <PageHeader eyebrow="Team Screening" title="Candidate Queue"
         description="All candidate reviews in your organization. Candidates stay anonymous until a decision." />
+
+      {error && <Alert tone="error">{error}</Alert>}
 
       <div className="flex gap-2 mb-4">
         {FILTERS.map(f => (

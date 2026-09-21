@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import { PageHeader, EmptyState, Badge } from './ui.jsx'
+import { PageHeader, EmptyState, Badge, Alert } from './ui.jsx'
 import { VerdictBadge } from './Criterion.jsx'
 
 const VERDICT_BAR = {
@@ -21,9 +21,10 @@ function StatCard({ label, value, accent }) {
 export default function Analytics() {
   const [reviews, setReviews] = useState([])
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api('/api/reviews').then(setReviews).catch(err => alert(err.message))
+    api('/api/reviews').then(setReviews).catch(err => setError(err.message))
   }, [])
 
   async function exportCompliance() {
@@ -38,7 +39,7 @@ export default function Analytics() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(err.message)
+      setError(err.message)
     } finally {
       setBusy(false)
     }
@@ -82,6 +83,8 @@ export default function Analytics() {
           </button>
         }
       />
+
+      {error && <Alert tone="error">{error}</Alert>}
 
       {reviews.length === 0 ? (
         <EmptyState title="Screen candidates to start seeing metrics."
