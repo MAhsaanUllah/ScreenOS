@@ -83,6 +83,36 @@ export default function Settings({ session, onSessionChange }) {
 
   const known = Object.fromEntries(configured.map(c => [c.provider, c]))
 
+  // Custom PII rules (HR can add location/university etc) — stored in Settings, not during CV check
+  const [piiRules, setPiiRules] = useState([])
+  const [newType, setNewType] = useState('location')
+  const [newValue, setNewValue] = useState('')
+  const [piiMsg, setPiiMsg] = useState('')
+
+  useEffect(() => {
+    api('/api/settings/pii').then(setPiiRules).catch(() => {})
+  }, [])
+
+  async function addPii(e) {
+    e.preventDefault()
+    setBusy(true); setPiiMsg('')
+    try {
+      const next = await api('/api/settings/pii', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: newType, value: newValue })
+      })
+      setPiiRules(next); setNewValue('')
+      setPiiMsg('Added. This value will be auto-removed on every CV.')
+    } catch (err) { setPiiMsg(err.message) }
+    finally { setBusy(false) }
+  }
+  async function delPii(id) {
+    setBusy(true)
+    try { setPiiRules(await api(`/api/settings/pii/${id}`, { method: 'DELETE' })) } catch (err) { alert(err.message) }
+    finally { setBusy(false) }
+  }
+
   return (
     <div className="max-w-[1400px] mx-auto">
       <PageHeader eyebrow="Workspace Configuration" title="Settings"
@@ -176,6 +206,45 @@ export default function Settings({ session, onSessionChange }) {
               )
             })}
           </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="panel-title mb-0">Custom Redaction <HelpTip text="HR can add any word to always redact — e.g. location Lahore, university PU. Added here in Settings, not during CV check. Appears auto in Review PII." /></h2>
+            <span className="text-[11px] font-semibold px-2 py-1 rounded bg-slate-100 text-slate-600">{piiRules.length} rules</span>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Add a word/phrase to always remove — e.g. <em>location</em> = <code className="px-1 bg-slate-100 rounded">Lahore</code>, <em>university</em> = <code className="px-1 bg-slate-100 rounded">University of Punjab</code>. Works on every CV automatically.</p>
+          {piiMsg && <Alert tone={piiMsg.startsWith('Added') ? 'success' : 'error'}>{piiMsg}</Alert>}
+          <form onSubmit={addPii} className="flex gap-2 mb-3 max-sm:flex-col">
+            <select value={newType} onChange={e => setNewType(e.target.value)} className="input max-w-[150px] max-sm:max-w-none">
+              <option value="location">location</option>
+              <option value="university">university</option>
+              <option value="custom">custom</option>
+              <option value="address">address</option>
+              <option value="other">other</option>
+            </select>
+            <input value={newValue} onChange={e => setNewValue(e.target.value)} placeholder="Value to redact e.g. Lahore" maxLength={120} required className="input flex-1" />
+            <button type="submit" disabled={busy || !newValue.trim()} className="btn-primary whitespace-nowrap">+ Add</button>
+          </form>
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Value</th><th className="px-3 py-2 text-right">Action</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {piiRules.length === 0 ? (
+                  <tr><td colSpan={3} className="px-3 py-6 text-center text-xs text-slate-400">No custom rules yet. Add location or university above — they’ll show in Review PII and be auto-removed.</td></tr>
+                ) : piiRules.map(r => (
+                  <tr key={r.id}>
+                    <td className="px-3 py-2 text-xs font-medium text-slate-600">{r.type}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-800">{r.value}</td>
+                    <td className="px-3 py-2 text-right"><button onClick={() => delPii(r.id)} disabled={busy} className="text-xs text-red-600 hover:text-red-700">Delete</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">These are not shown during CV upload — they live here in Settings. Every new CV will auto-hide these values.</p>
         </section>
       </div>
     </div>

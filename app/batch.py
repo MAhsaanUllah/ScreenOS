@@ -48,7 +48,17 @@ def ingest(ctx: dict, archive: bytes) -> dict:
                 path.write_bytes(bundle.read(member))
                 raw_text = extract_text(path)
                 detected = detect_pii(raw_text)
-                candidate = prepare_candidate(raw_text, name=guess)
+                # custom org rules that appear
+                try:
+                    from app import db as _db2
+                    customs2 = _db2.rows("SELECT type, value FROM org_pii_rules WHERE org_id=?", (ctx["org_id"],))
+                except Exception:
+                    customs2 = []
+                low2 = raw_text.lower()
+                custom_hits2 = [{"type": r["type"], "value": r["value"]} for r in customs2 if r["value"].lower() in low2]
+                candidate = prepare_candidate(raw_text, name=guess, remove_pii=custom_hits2 if custom_hits2 else None)
+                if custom_hits2:
+                    detected = detected + custom_hits2
             except (ValueError, OSError) as exc:
                 skipped.append({"filename": member.filename, "reason": str(exc)})
                 continue
@@ -82,6 +92,12 @@ def ingest_files(ctx: dict, uploads: list[tuple[bytes, str]]) -> dict:
         skipped: list[dict] = []
     reviews: list[dict] = []
     import tempfile as _tf
+    # load org custom rules once
+    try:
+        from app import db as _db
+        customs = _db.rows("SELECT type, value FROM org_pii_rules WHERE org_id=?", (ctx["org_id"],))
+    except Exception:
+        customs = []
     for data, filename in uploads:
         name = Path(filename).name
         guess = re.sub(r"[_\-.]+", " ", Path(name).stem).strip()
@@ -100,7 +116,13 @@ def ingest_files(ctx: dict, uploads: list[tuple[bytes, str]]) -> dict:
                 path.write_bytes(data)
                 raw_text = extract_text(path)
                 detected = detect_pii(raw_text)
-                candidate = prepare_candidate(raw_text, name=guess)
+                # auto-add matching custom rules
+                low = raw_text.lower()
+                custom_hits = [{"type": r["type"], "value": r["value"]} for r in customs if r["value"].lower() in low]
+                candidate = prepare_candidate(raw_text, name=guess, remove_pii=custom_hits if custom_hits else None)
+                # keep detected for UI, include custom hits
+                if custom_hits:
+                    detected = detected + custom_hits
         except (ValueError, OSError) as exc:
             skipped.append({"filename": filename, "reason": str(exc)})
             continue

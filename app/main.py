@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app import auth, batch, compliance, credentials, db, orgs, reviews, rubrics, team
+from app import auth, batch, compliance, credentials, db, orgs, pii_rules, reviews, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
@@ -203,6 +203,7 @@ def preview(request: Request, file: UploadFile | None = File(None)):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".txt", ".pdf", ".docx"}:
         raise HTTPException(400, "Choose a PDF, DOCX or TXT file.")
+    # merge org custom rules into detected so HR sees them in Review PII
     data = file.file.read(10 * 1024 * 1024 + 1)
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(413, "File exceeds 10 MB.")
@@ -219,6 +220,15 @@ def preview(request: Request, file: UploadFile | None = File(None)):
     if not raw_text.strip():
         raise HTTPException(400, "Could not extract text from this CV.")
     detected = detect_pii(raw_text)
+    # Append org custom rules that appear in text (so they show as removable in Review PII)
+    try:
+        customs = pii_rules.list_rules(ctx["org_id"])
+        low = raw_text.lower()
+        for r in customs:
+            if r["value"].lower() in low:
+                detected.append({"type": r["type"], "value": r["value"]})
+    except Exception:
+        pass
     return {"raw_text": raw_text, "detected_pii": detected}
 
 
@@ -393,6 +403,30 @@ def provider_catalog():
 def set_llm_settings(request: Request, body: CredentialRequest):
     ctx = auth.authorize(request)
     return credentials.set_key(ctx, body.provider, body.model, body.api_key)
+
+
+class PiiRuleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: str = Field(min_length=1, max_length=20)
+    value: str = Field(min_length=1, max_length=120)
+
+
+@app.get("/api/settings/pii")
+def pii_list(request: Request):
+    ctx = auth.authorize(request)
+    return pii_rules.list_rules(ctx["org_id"])
+
+
+@app.post("/api/settings/pii")
+def pii_add(request: Request, body: PiiRuleRequest):
+    ctx = auth.authorize(request)
+    return pii_rules.add_rule(ctx, body.type, body.value)
+
+
+@app.delete("/api/settings/pii/{rule_id}")
+def pii_delete(rule_id: str, request: Request):
+    ctx = auth.authorize(request)
+    return pii_rules.delete_rule(ctx, rule_id)
 
 
 class OrgRequest(BaseModel):

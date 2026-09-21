@@ -67,6 +67,15 @@ CREATE TABLE IF NOT EXISTS org_credentials (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (org_id, provider)
 );
+
+CREATE TABLE IF NOT EXISTS org_pii_rules (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id),
+  type TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pii_org ON org_pii_rules(org_id);
 """
 
 

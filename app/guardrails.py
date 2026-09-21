@@ -183,6 +183,15 @@ def prepare_candidate(text: str, *, name: str = "", address: str = "",
             raise ValueError("Graduation years must be integers from 1900 to 2099.")
         cleaned = re.sub(r"\b" + str(year) + r"\b", "[YEAR REMOVED]", cleaned)
 
+    # Phase 8: org custom rules (e.g. location, university) — case-insensitive substring
+    if remove_pii:
+        # custom rules are passed as items with type/value from Settings
+        for item in remove_pii:
+            t = (item.get("type") or "").strip().lower()
+            v = (item.get("value") or "").strip()
+            if t in {"location", "university", "custom", "address", "other"} and v and len(v) >= 2:
+                cleaned = re.sub(re.escape(v), "[REDACTED]", cleaned, flags=re.IGNORECASE)
+
     return {"candidate_hash": candidate_hash, "cleaned_text": cleaned,
             "candidate_data": wrap_candidate_data(cleaned)}
 
