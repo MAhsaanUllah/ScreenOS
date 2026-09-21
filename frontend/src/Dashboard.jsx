@@ -66,6 +66,7 @@ export default function Dashboard({ session, onNavigate }) {
         <div className="absolute top-1/3 left-1/4 w-[280px] h-[280px] bg-amber-200 rounded-full opacity-20" style={{ filter: 'blur(80px)' }} />
         <div className="absolute -bottom-10 right-1/3 w-[250px] h-[250px] bg-brand-200 rounded-full opacity-25" style={{ filter: 'blur(90px)' }} />
         <div className="absolute top-0 left-1/2 w-[200px] h-[200px] bg-red-200 rounded-full opacity-15" style={{ filter: 'blur(80px)' }} />
+        <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] bg-white rounded-full opacity-60" style={{ filter: 'blur(60px)' }} />
         <div className="relative flex items-start justify-between">
           <div>
             <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
