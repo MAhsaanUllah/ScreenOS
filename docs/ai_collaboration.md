@@ -33,7 +33,7 @@
 * **Candidate Persona Assessment:** Evaluating non-traditional applicant trajectories (e.g., career changers who automated data workflows with Python).
 * **Contextual Evidence Depth:** Deciding whether an extracted verbatim quote proves genuine architectural ownership or superficial classroom exposure.
 * **Final Advancement Authority:** Clicking **Approve (Advance to Interview)** or **Reject**. The AI is physically barred from making autonomous hiring decisions.
-* **Rubric Calibration & Weights:** Defining job requirements and assigning points (0–100) in `rubrics/rubric.md`.
+* **Rubric Calibration & Weights:** Defining job requirements and assigning points (0–100) in `rubrics/<job_id>.md`.
 * **System Boundaries & Non-Goals:** Deciding what NOT to build (e.g., rejecting heavy 500MB OCR dependencies during a 5-day sprint to maintain lean architecture).
 
 ---

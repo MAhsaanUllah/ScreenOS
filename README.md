@@ -110,7 +110,8 @@ SCREENOS/
 │   ├── main.py             # FastAPI backend & API routes
 │   └── static/             # Recruiter web interface (HTML/CSS/JS)
 ├── rubrics/
-│   └── rubric.md           # Customizable 100-point job requirement rubric
+│   ├── ai-engineer.md      # Default 100-point job rubric
+│   └── python-backend.md   # Additional selectable job rubric
 ├── samples/
 │   └── cvs/                # Test resumes (strong, partial, edge cases)
 ├── tests/                  # Unit and integration test suite

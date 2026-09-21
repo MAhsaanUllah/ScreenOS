@@ -64,10 +64,10 @@ Open your browser and navigate to: **`http://127.0.0.1:8000`**
 
 ## ⚙️ 3. How to Customize the Job Rubric (No Coding Required)
 
-All job requirements are defined in plain Markdown in **`rubrics/rubric.md`**.
+All job requirements are defined in plain Markdown in **`rubrics/<job_id>.md`**.
 
 To customize the requirements for a new job opening:
-1. Open `rubrics/rubric.md` in any text editor (Notepad, VS Code).
+1. Open `rubrics/<job_id>.md` in any text editor (Notepad, VS Code).
 2. Edit the criteria, weights, and evidence descriptions in the table:
 
 ```markdown

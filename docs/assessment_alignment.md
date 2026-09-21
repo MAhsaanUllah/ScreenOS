@@ -21,7 +21,7 @@ SCREENOS is built according to the authoritative 5-day assessment brief. It solv
 - [x] Defined target user (recruiter) and job-to-be-done.
 - [x] Implemented file ingestion pipeline for PDF, DOCX, TXT (`app/extractor.py`).
 - [x] Created baseline extraction benchmark (`docs/day1_results.md`).
-- [x] Defined 100-point customizable job rubric (`rubrics/rubric.md`).
+- [x] Defined 100-point customizable job rubric (`rubrics/<job_id>.md`).
 
 ### Day 2 (Safety, Schemas & v0) — Completed:
 - [x] Implemented PII sanitization and anti-injection wrapper (`app/guardrails.py`).

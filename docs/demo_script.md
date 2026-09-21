@@ -97,7 +97,7 @@
 ### Segment 5: Limitations, Open Repo & Next 2-Week Plan (4:00 – 5:00)
 * **What to Show on Screen:**
   1. Return to browser or show GitHub repo: `https://github.com/MAhsaanUllah/ScreenOS`.
-  2. Briefly show `rubrics/rubric.md` (how easy it is to change criteria in Markdown).
+  2. Briefly show `rubrics/<job_id>.md` (how easy it is to change criteria in Markdown).
 * **Checklist Covered:** `[Most important limitation stated]`, `[Runnable repo/live system referenced]`, `[Next 2-week plan]`.
 * **What to Say (in English):**
   > *"To be completely transparent, our most important limitation is that SCREENOS currently rejects scanned image-only PDFs. We deliberately chose not to bloat this 5-day build with 500-megabyte OCR dependencies, providing an upfront, actionable recruiter error instead.*

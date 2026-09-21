@@ -65,15 +65,15 @@ This avalanche results in three critical operational pains:
   2. *Anti-Injection Boundary:* Untrusted text safely enclosed in `<candidate_data>` XML blocks with escaped HTML delimiters (`html.escape`).
   3. *Verbatim Evidence Anchoring:* Model is prohibited from awarding points without supplying a continuous, exact quote from the CV verified via string matching.
   4. *Human-in-the-Loop Authority:* AI produces structured evidence; human recruiter holds 100% decision authority (Approve / Reject).
-* **Multi-Provider Failover:** Seamless, runtime-resilient routing between DeepSeek (V4 Flash) and Google Gemini (3.8 Flash) with zero credential leaks.
-* **Customizable Job Rubric:** A 100-point plain Markdown rubric (`rubrics/rubric.md`) that recruiters can adjust in seconds without touching code.
-* **Comprehensive Test Suite & Evaluation Matrix:** 10 sample CVs covering representative, edge, and adversarial scenarios, backed by 23 passing automated tests.
+* **Bring-Your-Own-Key Providers:** Each organization stores its own keys for DeepSeek, Google Gemini, Anthropic, OpenAI, Groq, OpenRouter or a local Ollama model. The first provider that answers wins, so a second key doubles as a fallback. Keys are never returned by the API.
+* **Customizable Job Rubric:** A 100-point plain Markdown rubric (`rubrics/<job_id>.md`) that recruiters can adjust in seconds without touching code.
+* **Comprehensive Test Suite & Evaluation Matrix:** 10 sample CVs covering representative, edge, and adversarial scenarios, backed by 54 passing automated tests.
 
 ### Explicit Non-Goals (Scope Discipline)
 * **No OCR on Scanned Image-Only PDFs:** Handled via fast pre-validation error (`"A PDF page has no readable text"`) rather than bloating the system with heavy 500MB+ Tesseract/C++ OCR dependencies.
 * **No Autonomous Auto-Hiring / Auto-Rejection:** System intentionally refuses to reject or advance candidates automatically. All candidate outcomes require an explicit human click.
-* **No Heavy Distributed Cloud ATS:** Focused on single-recruiter local workspace excellence rather than prematurely building multi-tenant SaaS authentication and billing.
-* **No Bi-directional ATS Sync via Enterprise APIs:** ATS export is handled cleanly via standardized, immutable JSON audit cards (`output/<token>.json`) rather than brittle proprietary CRM connectors.
+* **No Billing or Enterprise Identity:** Organizations, roles and per-organization keys are supported, but there is no subscription billing, SSO or external identity provider integration.
+* **No Bi-directional ATS Sync via Enterprise APIs:** ATS export is handled by downloading an immutable JSON audit card for a decided review rather than brittle proprietary CRM connectors.
 
 ---
 
@@ -99,8 +99,8 @@ This avalanche results in three critical operational pains:
        │    - Delimiter Escaping (html.escape)                    │
        │                                                          │
        │ 3. LLM Scoring Router: app/providers.py & app/scorer.py  │
-       │    - Primary: DeepSeek V4 Flash                          │
-       │    - Automatic Failover: Google Gemini 3.8 Flash         │
+       │    - Per-org keys: DeepSeek, Gemini, OpenAI, Anthropic   │
+       │    - Groq, OpenRouter, Ollama; failover in order         │
        │    - Untrusted Data Sandbox: <candidate_data>...</>      │
        │                                                          │
        │ 4. Validation & Schema Enforcement: app/schemas.py       │
@@ -108,8 +108,8 @@ This avalanche results in three critical operational pains:
        │    - Exact Verbatim Quote Substring Verification         │
        │    - Strict Arithmetic Totaling                          │
        │                                                          │
-       │ 5. Audit Persistence: output/<token>.json                │
-       │    - Immutable Decision Record + Recruiter Notes         │
+       │ 5. Audit Persistence: SQLite reviews table               │
+       │    - Decision Record + Recruiter Notes per organization  │
        └──────────────────────────────────────────────────────────┘
 ```
 
@@ -118,10 +118,10 @@ This avalanche results in three critical operational pains:
 | Architectural Choice | Option Chosen | Alternative Considered | Trade-off Rationale |
 |---|---|---|---|
 | **API Transport** | Python stdlib `urllib.request` + `json` | Heavy SDKs (`openai`, `google-genai`) | Eliminates external dependency drift, version conflicts, and build failures. Clean, lightweight, and auditable. |
-| **Failover Mechanism** | Sequential Provider Chain (`deepseek,gemini`) | Single hardcoded provider | Protects recruiters from 429 rate limits and 5xx downtime during high-volume screening batches. |
+| **Failover Mechanism** | Per-organization provider chain (bring your own key) | One deployment-wide provider key | Each organization supplies its own keys, so a second key doubles as a fallback and no shared credential sits on the server. |
+| **Storage Layer** | SQLite (`data/screenos.db`), scoped per organization | Flat JSON files per review | Organizations, roles and calibration analytics need queryable records; SQLite keeps setup at zero while staying portable. |
 | **Evidence Validation** | Deterministic Substring Verification (`item.evidence_quote in cleaned_text`) | Semantic embedding similarity | Substring matching is 100% deterministic, zero-cost, runs in microseconds, and completely eliminates AI quote hallucinations. |
-| **Storage Layer** | Flat JSON Audit Files (`output/<token>.json`) | SQLite / PostgreSQL | Keeps the 5-day artifact completely portable, zero-setup, and directly inspectable by non-technical operators. |
-| **Frontend Stack** | Vanilla HTML5 + CSS + JavaScript | React / Next.js SPA | Zero build step (`npm run build`), loads instantly in any browser, zero node_modules baggage. |
+| **Frontend Stack** | React + Vite + Tailwind (`frontend/`), built into `app/static/build/` | Hand-written HTML/CSS/JS | The workspace grew to six screens, so component state and one shared design system outweighed the cost of a build step. |
 
 ---
 
@@ -139,7 +139,7 @@ SCREENOS enforces an uncompromising division of labor:
 * **Candidate Persona Assessment:** Evaluating non-traditional trajectories (e.g., self-taught developers, operations assistants automating data with Python).
 * **Contextual Quality Evaluation:** Determining whether a verified project quote demonstrates genuine architectural depth or superficial classroom exercises.
 * **Final Advancement Verdict:** Clicking **Approve (Advance to Interview)** or **Reject**. The system physically cannot move candidates forward autonomously.
-* **Rubric Governance:** Defining what technical criteria matter for each role in `rubrics/rubric.md`.
+* **Rubric Governance:** Defining what technical criteria matter for each role in `rubrics/<job_id>.md`.
 * **Audit Trail Sign-off:** Adding qualitative recruiter notes and authorizing the final decision record.
 
 ---
@@ -198,3 +198,24 @@ Following the completion of the 5-day sprint, the planned 14-day roadmap focuses
 * **Day 9–10: Calibration & Discrepancy Analytics:** Implement a calibration view that flags discrepancies where human recruiter decisions diverge significantly from AI suggestions, fine-tuning rubric weights over time.
 * **Day 11–12: Multi-User Role Permissions:** Introduce lightweight JWT role-based access control separating Junior Recruiters (evidence gathering) from Lead Hiring Managers (final offer approvals).
 * **Day 13–14: Compliance Export Package:** Generate one-click PDF compliance reports summarizing demographic neutrality audits for NYC Local Law 144 regulatory filings.
+
+---
+
+## 8. Delivered After the Day 5 Handoff
+
+The two-week plan above was started straight after the Day 5 submission. What is in the repository now:
+
+### Delivered
+* **Multi-tenant organizations and sessions** (`app/db.py`, `app/auth.py`): SQLite persistence, PBKDF2 password hashing, organization-scoped reviews and opaque session tokens. Every screening route is scoped to the caller's organization.
+* **Bring-your-own-key providers** (`app/credentials.py`, `app/providers.py`): each organization stores its own key for DeepSeek, Google Gemini, Anthropic, OpenAI, Groq, OpenRouter or a local Ollama model. Keys are admin-managed, never returned by the API, and a second key acts as a fallback in order.
+* **Team and roles** (`app/team.py`): administrators add an existing account and set `ADMIN` or `RECRUITER`; recruiters can review but cannot manage the team.
+* **Calibration analytics** (`app/calibration.py`): flags decided reviews where the human decision diverges from the AI verdict and reports the agreement rate per organization.
+* **Multiple selectable rubrics** (`app/rubrics.py`, `rubrics/<job_id>.md`): the job rubric is chosen per screening instead of hard-coded, and every stored scorecard records the job it used.
+* **Settings** (`app/orgs.py`): organization profile and rename, plus self-service password rotation that revokes the user's other sessions.
+* **Continuous integration** (`.github/workflows/tests.yml`): the full suite runs on every push and pull request.
+
+### Still open from the plan
+* Bulk ZIP ingestion and the OCR sidecar for scanned PDFs.
+* Greenhouse and Ashby webhook connectors.
+* Compliance PDF export for NYC Local Law 144 filings.
+* Team and Settings screens in the React workspace; their APIs are live and tested but the screens are not built yet.
