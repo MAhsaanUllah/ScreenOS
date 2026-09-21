@@ -9,7 +9,7 @@ function LiveClock() {
   const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
   const date = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   return (
-    <div className="text-right">
+    <div className="text-right whitespace-nowrap">
       <div className="text-sm font-semibold text-slate-800 font-mono">{time}</div>
       <div className="text-[11px] text-slate-400">{date}</div>
     </div>
@@ -79,7 +79,7 @@ export default function Dashboard({ session, onNavigate }) {
               Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6 shrink-0">
             <LiveClock />
             <Blobatar name={session.org.name} animate="hover" />
           </div>
