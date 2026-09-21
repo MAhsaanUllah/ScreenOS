@@ -14,5 +14,12 @@ ASSESSMENT_BRIEF.md
 .hermes/
 MASTER_STUDY_GUIDE.md
 docs/MASTER_STUDY_GUIDE.md
+frontend/node_modules/
+frontend/dist/
+app/static/build/
+data/
+.opencode/
+*.log
+.DS_Store
 
 
