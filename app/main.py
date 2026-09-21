@@ -165,8 +165,8 @@ def compliance_csv(request: Request):
 
 
 @app.post("/api/preview")
-def preview(request: Request, file: UploadFile = File(...), name: str = Form(""),
-            address: str = Form(""), years: str = Form("")):
+def preview(request: Request, file: UploadFile = File(...)):
+    """Phase 1: extract text and detect PII. No removal, no storage."""
     ctx = auth.authorize(request)
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".txt", ".pdf", ".docx"}:
@@ -184,17 +184,32 @@ def preview(request: Request, file: UploadFile = File(...), name: str = Form("")
     if not raw_text.strip():
         raise HTTPException(400, "Could not extract text from this CV.")
     detected = detect_pii(raw_text)
+    return {"raw_text": raw_text, "detected_pii": detected}
+
+
+@app.post("/api/preview/confirm")
+def preview_confirm(request: Request, raw_text: str = Form(...),
+                    name: str = Form(""), address: str = Form(""),
+                    years: str = Form(""), remove_pii: str = Form("[]")):
+    """Phase 2: apply selected PII removals and store the review."""
+    ctx = auth.authorize(request)
+    if not raw_text.strip():
+        raise HTTPException(400, "Candidate text is required.")
+    try:
+        pii_items = json.loads(remove_pii) if remove_pii else []
+    except (json.JSONDecodeError, TypeError):
+        pii_items = []
     try:
         graduation_years = tuple(int(y.strip()) for y in years.split(",") if y.strip())
         candidate = prepare_candidate(raw_text, name=name, address=address,
-                                      graduation_years=graduation_years)
+                                      graduation_years=graduation_years,
+                                      remove_pii=pii_items)
     except (ValueError, OSError):
-        raise HTTPException(400, "Could not prepare this CV. Check the file, name and graduation years.") from None
+        raise HTTPException(400, "Could not prepare this CV.") from None
     if len(candidate["cleaned_text"]) > 100000:
-        raise ValueError("Resume text is too long; use a shorter CV.")
+        raise HTTPException(400, "Resume text is too long; use a shorter CV.")
     return {"review_id": reviews.store_review(ctx, candidate),
-            "cleaned_text": candidate["cleaned_text"],
-            "detected_pii": detected}
+            "cleaned_text": candidate["cleaned_text"]}
 
 
 MAX_ARCHIVE = 25 * 1024 * 1024

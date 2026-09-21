@@ -29,18 +29,19 @@ class WebChecks(unittest.TestCase):
         client = self.client
         self.assertEqual(client.get("/").status_code, 200)
         self.assertEqual(client.post("/api/preview", headers={"X-Screenos": "1"},
-                                     files={"file": ("cv.txt", b"Amina Example")},
-                                     data={"name": "Amina Example"}).status_code, 401)
+                                     files={"file": ("cv.txt", b"Amina Example")}).status_code, 401)
         self.assertEqual(client.post("/api/preview", headers=self.headers,
-                                     files={"file": ("cv.csv", b"Amina Example")},
-                                     data={"name": "Amina Example"}).status_code, 400)
+                                     files={"file": ("cv.csv", b"Amina Example")}).status_code, 400)
 
         reply = client.post("/api/preview", headers=self.headers,
-                            files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")},
-                            data={"name": "Amina Example"})
+                            files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")})
         self.assertEqual(reply.status_code, 200)
-        token = reply.json()["review_id"]
-        self.assertNotIn("Amina Example", reply.json()["cleaned_text"])
+        raw = reply.json()["raw_text"]
+        confirm = client.post("/api/preview/confirm", headers=self.headers,
+                              data={"raw_text": raw, "name": "Amina Example"})
+        self.assertEqual(confirm.status_code, 200)
+        token = confirm.json()["review_id"]
+        self.assertNotIn("Amina Example", confirm.json()["cleaned_text"])
 
         decision = f"/api/reviews/{token}/decision"
         self.assertEqual(client.post(decision, headers=self.headers,
@@ -71,9 +72,12 @@ class WebChecks(unittest.TestCase):
     def test_provider_downtime_is_safe_and_retryable(self):
         client = self.client
         reply = client.post("/api/preview", headers=self.headers,
-                            files={"file": ("cv.txt", b"Sample Candidate\nBuilt Python tools.")},
-                            data={"name": "Sample Candidate"})
-        token = reply.json()["review_id"]
+                            files={"file": ("cv.txt", b"Sample Candidate\nBuilt Python tools.")})
+        self.assertEqual(reply.status_code, 200)
+        confirm = client.post("/api/preview/confirm", headers=self.headers,
+                              data={"raw_text": reply.json()["raw_text"], "name": "Sample Candidate"})
+        self.assertEqual(confirm.status_code, 200)
+        token = confirm.json()["review_id"]
         with patch.object(web, "complete", side_effect=ScoringUnavailable(
                 "Scoring is temporarily unavailable. Your CV preview is safe; try again shortly.")):
             result = client.post(f"/api/reviews/{token}/score", headers=self.headers,
@@ -132,19 +136,26 @@ class WebChecks(unittest.TestCase):
         self.assertEqual(switched.status_code, 403)
 
         other = client.post("/api/preview", headers={"X-Screenos": "1", "Authorization": f"Bearer {payload['token']}"},
-                            files={"file": ("cv.txt", b"Amina Example")}, data={"name": "Amina Example"})
+                            files={"file": ("cv.txt", b"Amina Example")})
         self.assertEqual(other.status_code, 200)
+        confirm = client.post("/api/preview/confirm",
+                              headers={"X-Screenos": "1", "Authorization": f"Bearer {payload['token']}"},
+                              data={"raw_text": other.json()["raw_text"], "name": "Amina Example"})
+        self.assertEqual(confirm.status_code, 200)
         # Acme's recruiter cannot read Globex reviews.
-        peek = client.post(f"/api/reviews/{other.json()['review_id']}/score", headers=self.headers,
+        peek = client.post(f"/api/reviews/{confirm.json()['review_id']}/score", headers=self.headers,
                            json={"cleaned_text": "x"})
         self.assertEqual(peek.status_code, 404)
 
     def test_queue_rubric_endpoints_are_tenant_scoped(self):
         client = self.client
         preview = client.post("/api/preview", headers=self.headers,
-                              files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")},
-                              data={"name": "Amina Example"})
-        token = preview.json()["review_id"]
+                              files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")})
+        self.assertEqual(preview.status_code, 200)
+        confirm = client.post("/api/preview/confirm", headers=self.headers,
+                              data={"raw_text": preview.json()["raw_text"], "name": "Amina Example"})
+        self.assertEqual(confirm.status_code, 200)
+        token = confirm.json()["review_id"]
 
         listed = client.get("/api/reviews", headers=self.headers).json()
         self.assertEqual(listed[0]["short"], token[:8])

@@ -31,9 +31,13 @@ class ComplianceChecks(unittest.TestCase):
 
     def _screened(self, headers, decision=None):
         preview = self.client.post("/api/preview", headers=headers,
-                                   files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")},
-                                   data={"name": "Amina Example"})
-        token = preview.json()["review_id"]
+                                   files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")})
+        self.assertEqual(preview.status_code, 200, preview.text)
+        raw = preview.json()["raw_text"]
+        confirm = self.client.post("/api/preview/confirm", headers=headers,
+                                   data={"raw_text": raw, "name": "Amina Example"})
+        self.assertEqual(confirm.status_code, 200, confirm.text)
+        token = confirm.json()["review_id"]
 
         def fake(messages):
             payload = json.loads(messages[1]["content"])

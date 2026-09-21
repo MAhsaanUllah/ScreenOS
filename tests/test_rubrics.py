@@ -45,10 +45,12 @@ class RubricSelectionChecks(unittest.TestCase):
 
     def _preview(self):
         reply = self.client.post("/api/preview", headers=self.headers,
-                                 files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")},
-                                 data={"name": "Amina Example"})
+                                 files={"file": ("cv.txt", b"Amina Example\nBuilt Python tools.")})
         self.assertEqual(reply.status_code, 200, reply.text)
-        return reply.json()["review_id"]
+        confirm = self.client.post("/api/preview/confirm", headers=self.headers,
+                                   data={"raw_text": reply.json()["raw_text"], "name": "Amina Example"})
+        self.assertEqual(confirm.status_code, 200, confirm.text)
+        return confirm.json()["review_id"]
 
     def test_rubrics_endpoint_lists_selectable_rubrics(self):
         reply = self.client.get("/api/rubrics")
