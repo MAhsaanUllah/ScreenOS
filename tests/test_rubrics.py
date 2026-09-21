@@ -74,6 +74,9 @@ class RubricSelectionChecks(unittest.TestCase):
         self.assertEqual(seen["job_id"], "python-backend")
         self.assertEqual(reply.json()["job_id"], "python-backend")
 
+        queue = self.client.get("/api/reviews", headers=self.headers).json()
+        self.assertEqual(next(row for row in queue if row["id"] == token)["job_id"], "python-backend")
+
     def test_unknown_rubric_is_rejected(self):
         token = self._preview()
         reply = self.client.post(f"/api/reviews/{token}/score", headers=self.headers,

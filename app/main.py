@@ -106,6 +106,7 @@ def _summary(review: dict) -> dict:
         "status": review["decision"] or ("SCORED" if card else "PENDING"),
         "score": card["overall_score"] if card else None,
         "verdict": card["verdict"] if card else None,
+        "job_id": card["job_id"] if card else None,
     }
 
 
