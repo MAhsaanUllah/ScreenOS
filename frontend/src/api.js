@@ -29,7 +29,13 @@ export async function api(path, options = {}) {
     try { data = JSON.parse(text) } catch { data = {} }
   }
   if (!response.ok) {
-    throw new Error(typeof data.detail === 'string' ? data.detail : `Server error (HTTP ${response.status}). Please try again.`)
+    let msg = `Server error (HTTP ${response.status}). Please try again.`
+    if (typeof data.detail === 'string' && data.detail) msg = data.detail
+    else if (Array.isArray(data.detail) && data.detail[0]) {
+      const first = data.detail[0]
+      msg = typeof first.msg === 'string' ? first.msg : JSON.stringify(first)
+    } else if (data.detail && typeof data.detail.msg === 'string') msg = data.detail.msg
+    throw new Error(msg)
   }
   if (!text) {
     throw new Error(OFFLINE)

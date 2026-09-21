@@ -342,9 +342,9 @@ def team_role(user_id: str, request: Request, body: RoleRequest):
 
 class CredentialRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    provider: str = Field(min_length=1, max_length=32)
-    api_key: str = Field(max_length=512)
-    model: str = Field(default="", max_length=120)
+    provider: str
+    api_key: str
+    model: str = ""
 
 
 @app.get("/api/settings/llm")
