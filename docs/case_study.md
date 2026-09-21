@@ -67,7 +67,7 @@ This avalanche results in three critical operational pains:
   4. *Human-in-the-Loop Authority:* AI produces structured evidence; human recruiter holds 100% decision authority (Approve / Reject).
 * **Bring-Your-Own-Key Providers:** Each organization stores its own keys for DeepSeek, Google Gemini, Anthropic, OpenAI, Groq, OpenRouter or a local Ollama model. The first provider that answers wins, so a second key doubles as a fallback. Keys are never returned by the API.
 * **Customizable Job Rubric:** A 100-point plain Markdown rubric (`rubrics/<job_id>.md`) that recruiters can adjust in seconds without touching code.
-* **Comprehensive Test Suite & Evaluation Matrix:** 10 sample CVs covering representative, edge, and adversarial scenarios, backed by 54 passing automated tests.
+* **Comprehensive Test Suite & Evaluation Matrix:** 10 sample CVs covering representative, edge, and adversarial scenarios, backed by 58 passing automated tests.
 
 ### Explicit Non-Goals (Scope Discipline)
 * **No OCR on Scanned Image-Only PDFs:** Handled via fast pre-validation error (`"A PDF page has no readable text"`) rather than bloating the system with heavy 500MB+ Tesseract/C++ OCR dependencies.
@@ -212,10 +212,12 @@ The two-week plan above was started straight after the Day 5 submission. What is
 * **Calibration analytics** (`app/calibration.py`): flags decided reviews where the human decision diverges from the AI verdict and reports the agreement rate per organization.
 * **Multiple selectable rubrics** (`app/rubrics.py`, `rubrics/<job_id>.md`): the job rubric is chosen per screening instead of hard-coded, and every stored scorecard records the job it used.
 * **Settings** (`app/orgs.py`): organization profile and rename, plus self-service password rotation that revokes the user's other sessions.
-* **Continuous integration** (`.github/workflows/tests.yml`): the full suite runs on every push and pull request.
+* **Bulk intake** (`app/batch.py`): a ZIP of resumes becomes one review per file; the candidate name is derived from the file name and redacted before anything is stored.
+* **Compliance export** (`app/compliance.py`): a filing-ready audit summary and CSV of decisions, verdicts and guardrail statements for each organization.
+* **React workspace** (`frontend/`, built into `app/static/build/`): screening, candidate queue, analytics, rubrics, team and settings screens served by the same FastAPI app.
+* **Continuous integration** (`.github/workflows/tests.yml`): the Python suite and the frontend build both run on every push and pull request.
 
 ### Still open from the plan
-* Bulk ZIP ingestion and the OCR sidecar for scanned PDFs.
+* The OCR sidecar for scanned PDFs; image-only PDFs are still rejected with an actionable message.
 * Greenhouse and Ashby webhook connectors.
-* Compliance PDF export for NYC Local Law 144 filings.
-* Team and Settings screens in the React workspace; their APIs are live and tested but the screens are not built yet.
+* A PDF rendering of the compliance export; JSON and CSV are available today.

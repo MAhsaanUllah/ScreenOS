@@ -10,7 +10,7 @@ SCREENOS is built according to the authoritative 5-day assessment brief. It solv
 * **Anti-Injection (Day 2):** XML-delimited `<candidate_data>` wrapping with HTML-escaping to prevent prompt breakout attacks.
 * **Structured Schemas (Day 2):** Strict Pydantic models verifying exact verbatim quotes, points arithmetic, and verdict categories.
 * **Multi-Provider Failover (Day 3):** Resilient routing across DeepSeek, Gemini, and CommandCode with automatic rate-limit recovery.
-* **Full Evaluation & Adversarial Hardening (Day 4):** 23/23 tests passed, prompt injection neutralization verified, and Root Cause Analysis documented.
+* **Full Evaluation & Adversarial Hardening (Day 4 onward):** 58/58 tests passing, prompt injection neutralization verified, and Root Cause Analysis documented.
 * **Handoff & Submission Packaging (Day 5):** Operator runbook (`docs/runbook.md`), case study (`docs/case_study.md`), AI collaboration note (`docs/ai_collaboration.md`), and 5-min demo video script (`docs/demo_script.md`).
 
 ---

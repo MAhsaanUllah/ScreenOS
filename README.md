@@ -2,8 +2,8 @@
 
 SCREENOS is an AI-assisted candidate screening workspace designed for non-technical recruiters. It automates repetitive first-pass resume evaluation while enforcing strict anti-bias, anti-prompt-injection guardrails, and requiring verifiable evidence quotes from the candidate's CV.
 
-> **Current Milestone: Day 5 (Handoff, Case Study & Submission Ready)**  
-> Ingestion, PII redaction, structured scorecard schemas, provider failover (DeepSeek / Gemini / CommandCode), local recruiter workspace, full 10-sample evaluation suite with adversarial defense, operator runbook, AI collaboration note, and demo video script are fully verified and packaged.
+> **Current Milestone: Day 5 handoff delivered, two-week plan underway**  
+> Ingestion, PII redaction, evidence-backed scorecards and the 10-sample evaluation suite were delivered on Day 5. Since then the workspace has grown into a multi-tenant service: organizations, roles and sessions; per-organization LLM keys (bring your own key) across seven providers; a React workspace; bulk ZIP intake; calibration analytics; and a compliance export. 58 automated tests and a CI build cover it.
 
 ### 📚 Official Sprint Deliverables
 1. **Working System:** Reproducible local repository with 3-step setup (see below).
@@ -37,6 +37,8 @@ GEMINI_MODEL=gemini-3.8-flash
 # Try DeepSeek first, then Gemini if it is unavailable or rate-limited
 LLM_PROVIDER=deepseek,gemini
 ```
+
+A deployment-wide key is only a fallback: each organization can store its own keys under **Settings** (DeepSeek, Gemini, Anthropic, OpenAI, Groq, OpenRouter or a local Ollama model), and a second key acts as a fallback. See `docs/runbook.md`.
 
 ### 3. Launch the Recruiter Workspace
 ```powershell
@@ -100,22 +102,35 @@ Test extraction benchmarks:
 ```
 SCREENOS/
 ├── app/
+│   ├── main.py             # FastAPI routes for the workspace API
+│   ├── db.py               # SQLite persistence
+│   ├── auth.py             # Sign-up, sessions, password rotation
+│   ├── reviews.py          # Review persistence
 │   ├── extractor.py        # Text extraction from PDF/DOCX/TXT
 │   ├── guardrails.py       # PII removal, document hashing & escaping
+│   ├── scorer.py           # Rubric loading and scoring orchestration
 │   ├── schemas.py          # Strict Pydantic models for scorecards
-│   ├── scorer.py           # Provider-agnostic scoring logic & prompt
-│   ├── deepseek.py         # DeepSeek API transport
-│   ├── gemini.py           # Gemini API transport
-│   ├── commandcode.py      # CommandCode API transport
-│   ├── main.py             # FastAPI backend & API routes
-│   └── static/             # Recruiter web interface (HTML/CSS/JS)
-├── rubrics/
-│   ├── ai-engineer.md      # Default 100-point job rubric
-│   └── python-backend.md   # Additional selectable job rubric
+│   ├── providers.py        # Provider catalog and failover
+│   ├── credentials.py      # Per-organization provider keys
+│   ├── deepseek.py         # DeepSeek transport
+│   ├── gemini.py           # Gemini transport
+│   ├── anthropic.py        # Anthropic transport
+│   ├── openai_compat.py    # OpenAI, Groq, OpenRouter and Ollama transport
+│   ├── commandcode.py      # Owner's personal transport
+│   ├── rubrics.py          # Rubric registry
+│   ├── batch.py            # Bulk ZIP intake
+│   ├── calibration.py      # AI vs human disagreement
+│   ├── compliance.py       # Audit summary and CSV export
+│   ├── orgs.py             # Organization profile settings
+│   ├── team.py             # Members and roles
+│   └── static/             # Built workspace assets
+├── frontend/               # React + Vite + Tailwind workspace
+├── rubrics/                # One 100-point rubric per job id
 ├── samples/
 │   └── cvs/                # Test resumes (strong, partial, edge cases)
-├── tests/                  # Unit and integration test suite
-├── docs/                   # Benchmark results and architecture documentation
+├── tests/                  # 58 automated tests
+├── docs/                   # Benchmarks, case study, runbook
+├── .github/workflows/      # CI: Python tests and frontend build
 ├── requirements.txt        # Python dependencies
 └── README.md
 ```

@@ -3,7 +3,7 @@
 > **Assessment Submission Deliverable:** Evaluation Package  
 > **Test Dataset:** 10 Representative, Edge-Case, and Adversarial Fictional Resumes (`samples/cvs/`)  
 > **Evaluation Date:** 7 September 2026  
-> **Automated Test Suite:** 23 / 23 Tests Passing (100% Green)
+> **Automated Test Suite:** 58 / 58 Tests Passing (100% Green)
 
 ---
 

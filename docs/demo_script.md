@@ -83,7 +83,7 @@
      ```powershell
      python -m unittest discover -s tests -v
      ```
-  5. Show **`Ran 23 tests ... OK`**.
+  5. Show **`Ran 58 tests ... OK`**.
 * **Checklist Covered:** `[Evaluation results shown]`, `[Measured improvement shown]`.
 * **What to Say (in English):**
   > *"To validate reliability, we evaluated SCREENOS across a rigorous 10-case evaluation suite covering strong applicants, career changers, keyword stuffers, and adversarial jailbreaks.*

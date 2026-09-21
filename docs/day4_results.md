@@ -64,7 +64,7 @@ Command: `.\.venv\Scripts\python.exe scripts/evaluate_samples.py --live`
 
 ## 4. Test Suite Summary
 
-Total Automated Tests: **23 Passed (100%)**
+Total Automated Tests: **23 Passed (100%)** as recorded on Day 4; the suite now runs 58 tests.
 - Extractor & Encoding: 5 tests
 - Guardrails & PII Sanitization: 2 tests
 - Schema & Point Arithmetic: 2 tests

@@ -102,5 +102,18 @@ To customize the requirements for a new job opening:
 ## 🔒 5. Data Privacy & Compliance Safeguards
 
 * **Local Data Boundary:** The server binds strictly to `127.0.0.1` (loopback). No unencrypted external endpoints are exposed.
-* **Zero PII Logging:** Resumes and candidate names are never written to disk during extraction. Only final human decisions are saved to `output/<token>.json`.
+* **Zero PII Logging:** Resumes and candidate names are never written to logs. The redacted text and the final human decision live in the local SQLite database (`data/screenos.db`), scoped to the organization.
 * **Regulatory Alignment:** Satisfies NYC Local Law 144 and EU AI Act requirements by enforcing human authority over all hiring decisions.
+
+---
+
+## 🧩 6. Providers, Bulk Intake & Compliance Export
+
+### Bring your own key
+Each organization stores its own provider key under **Settings**. Supported providers: DeepSeek, Google Gemini, Anthropic, OpenAI, Groq, OpenRouter, and a local Ollama model (which needs no key). Keys are saved by an administrator, are never shown again after saving (only the last four characters), and a second key acts as an automatic fallback when the first one fails. If an organization has no key at all, scoring replies with a message telling the admin to add one.
+
+### Bulk intake
+Upload a ZIP of resumes (up to 50 files, 10 MB each) from the screening screen. The server extracts, redacts and stores one review per file. A bulk upload has no per-candidate name field, so the name is derived from the file name — **check each derived name and correct it before scoring.**
+
+### Compliance export
+**Settings → Export compliance report** downloads the organization's audit summary: candidate counts, decisions, verdicts and the guardrails in force. For filing alongside it, `GET /api/compliance.csv` returns the per-candidate records as CSV.
