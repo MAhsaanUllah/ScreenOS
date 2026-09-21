@@ -20,7 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app import auth, batch, compliance, credentials, db, orgs, reviews, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
-from app.guardrails import prepare_candidate, wrap_candidate_data
+from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
 from app.providers import CATALOG, ScoringUnavailable, complete
 from app.scorer import rubric_info, score_prepared
 
@@ -165,7 +165,7 @@ def compliance_csv(request: Request):
 
 
 @app.post("/api/preview")
-def preview(request: Request, file: UploadFile = File(...), name: str = Form(...),
+def preview(request: Request, file: UploadFile = File(...), name: str = Form(""),
             address: str = Form(""), years: str = Form("")):
     ctx = auth.authorize(request)
     suffix = Path(file.filename or "").suffix.lower()
@@ -175,18 +175,26 @@ def preview(request: Request, file: UploadFile = File(...), name: str = Form(...
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(413, "File exceeds 10 MB.")
     try:
-        graduation_years = tuple(int(y.strip()) for y in years.split(",") if y.strip())
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / ("resume" + suffix)
             path.write_bytes(data)
-            candidate = prepare_candidate(extract_text(path), name=name, address=address,
-                                          graduation_years=graduation_years)
-        if len(candidate["cleaned_text"]) > 100000:
-            raise ValueError("Resume text is too long; use a shorter CV.")
+            raw_text = extract_text(path)
     except (ValueError, OSError):
-        raise HTTPException(400, "Could not prepare this CV. Check the file, name and comma-separated graduation years.") from None
+        raise HTTPException(400, "Could not read this CV. Check the file format.") from None
+    if not raw_text.strip():
+        raise HTTPException(400, "Could not extract text from this CV.")
+    detected = detect_pii(raw_text)
+    try:
+        graduation_years = tuple(int(y.strip()) for y in years.split(",") if y.strip())
+        candidate = prepare_candidate(raw_text, name=name, address=address,
+                                      graduation_years=graduation_years)
+    except (ValueError, OSError):
+        raise HTTPException(400, "Could not prepare this CV. Check the file, name and graduation years.") from None
+    if len(candidate["cleaned_text"]) > 100000:
+        raise ValueError("Resume text is too long; use a shorter CV.")
     return {"review_id": reviews.store_review(ctx, candidate),
-            "cleaned_text": candidate["cleaned_text"]}
+            "cleaned_text": candidate["cleaned_text"],
+            "detected_pii": detected}
 
 
 MAX_ARCHIVE = 25 * 1024 * 1024

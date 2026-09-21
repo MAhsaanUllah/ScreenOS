@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 from app.extractor import extract_text
-from app.guardrails import prepare_candidate
+from app.guardrails import detect_pii, prepare_candidate
 from app.reviews import store_review
 
 SUPPORTED = {".pdf", ".docx", ".txt"}
@@ -45,13 +45,16 @@ def ingest(ctx: dict, archive: bytes) -> dict:
             try:
                 path = root / ("resume" + Path(name).suffix.lower())
                 path.write_bytes(bundle.read(member))
-                candidate = prepare_candidate(extract_text(path), name=guess)
+                raw_text = extract_text(path)
+                detected = detect_pii(raw_text)
+                candidate = prepare_candidate(raw_text, name=guess)
             except (ValueError, OSError) as exc:
                 skipped.append({"filename": member.filename, "reason": str(exc)})
                 continue
             reviews.append({"filename": member.filename, "name_guess": guess,
                             "candidate_hash": candidate["candidate_hash"],
-                            "review_id": store_review(ctx, candidate)})
+                            "review_id": store_review(ctx, candidate),
+                            "detected_pii": detected})
     return {"accepted": len(reviews), "skipped": skipped, "reviews": reviews}
 
 
