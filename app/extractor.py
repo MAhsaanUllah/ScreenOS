@@ -26,12 +26,32 @@ def extract_text(file_path: str | Path) -> str:
             raw = path.read_text(encoding="utf-8-sig")
         elif suffix == ".pdf":
             with pdfplumber.open(path) as pdf:
-                pages = [page.extract_text() or "" for page in pdf.pages]
-            if any(not page.strip() for page in pages):
-                raise ValueError(
-                    "A PDF page has no readable text. It may be blank or scanned. "
-                    "Provide a text-based PDF, DOCX or TXT version."
-                )
+                pages = []
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    if not text.strip():
+                        # Optional OCR fallback for scanned PDFs (needs tesseract + pytesseract)
+                        try:
+                            # ponytail: OCR only if libs + binary present, else keep strict error
+                            import pytesseract  # type: ignore
+                            from PIL import Image  # type: ignore
+
+                            # render page to image via pdfplumber if available
+                            try:
+                                im = page.to_image(resolution=300).original  # PIL Image
+                                ocr = pytesseract.image_to_string(im) or ""
+                                if ocr.strip():
+                                    text = ocr
+                                else:
+                                    raise ValueError("empty ocr")
+                            except Exception:
+                                raise
+                        except Exception:
+                            raise ValueError(
+                                "A PDF page has no readable text. It may be blank or scanned. "
+                                "Export as text-based PDF/DOCX/TXT, or install Tesseract OCR (pytesseract) for scanned PDFs."
+                            ) from None
+                    pages.append(text)
             raw = "\n\n".join(pages)
         else:
             parts = []

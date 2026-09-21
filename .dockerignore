@@ -1,0 +1,16 @@
+.venv
+__pycache__
+*.pyc
+.git
+.github
+frontend/node_modules
+frontend/dist
+data/screenos.db
+data/.cred_key
+.env
+.pytest_cache
+output
+private_cvs
+.hermes
+.kilo
+.opencode

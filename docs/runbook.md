@@ -5,39 +5,40 @@
 
 ---
 
-## 🚀 1. Three-Step Quickstart (Setup & Launch)
+## 🚀 1. Quickstart — Local (3 steps) or VPS (1 command)
 
 ### Prerequisites
-* Windows, macOS, or Linux with Python 3.11+ installed.
-* API key for at least one supported provider: **DeepSeek** (default) or **Google Gemini**.
+* Windows/macOS/Linux + Python 3.11+. API key optional — use Ollama local with no key.
 
-### Step 1: Install Dependencies
-Open PowerShell or your terminal in the project root:
+### Local (HR laptop) — 3 steps
+**Step 1: Install**
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
-
-### Step 2: Configure API Key
-Create a `.env` file in the root folder (or copy `.env.example`):
+**Step 2: (Optional) API key**
+Copy `.env.example` → `.env`. Skip if using **Ollama (local)** in Settings. Otherwise add one fallback key:
 ```ini
-# Primary Provider
-DEEPSEEK_API_KEY=sk-your-deepseek-key-here
-DEEPSEEK_MODEL=deepseek-v4-flash
-
-# Optional Backup Provider (for automatic failover)
-GEMINI_API_KEY=your-gemini-key-here
-GEMINI_MODEL=gemini-3.8-flash
-
-# Failover Routing Order
+DEEPSEEK_API_KEY=sk-your-key
 LLM_PROVIDER=deepseek,gemini
 ```
-
-### Step 3: Start the Local Workspace
+Better: add per-org keys later under **Settings → AI Provider Keys** (encrypted, no env needed).
+**Step 3: Run**
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-Open your browser and navigate to: **`http://127.0.0.1:8000`**
+Open **`http://127.0.0.1:8000`** → **Help & Guide** in the sidebar has the 4-step HR flow.
+
+### VPS / Production — 1 command (Docker)
+```bash
+cp .env.example .env
+# edit .env: set SCREENOS_ALLOWED_HOSTS=yourdomain.com (or VPS_IP)
+# optional: paste SCREENOS_CRED_KEY from: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+docker compose up --build -d
+# Open http://YOUR_VPS_IP:8000  (add Nginx/Caddy for HTTPS → HSTS auto-enabled)
+```
+- Same backend serves API + UI on `:8000`. `data/` volume persists SQLite + encrypted BYOK.
+- `SCREENOS_CRED_KEY` encrypts per-org keys at rest; leave empty locally (auto `data/.cred_key`).
 
 ### Step 4 (optional): Load demo data
 To explore the workspace without typing a CV in, seed a demo organization:

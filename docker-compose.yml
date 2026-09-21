@@ -1,0 +1,16 @@
+services:
+  screenos:
+    build: .
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      # VPS: set your domain, e.g. SCREENOS_ALLOWED_HOSTS=your-vps-ip,example.com
+      - SCREENOS_ALLOWED_HOSTS=${SCREENOS_ALLOWED_HOSTS:-}
+      - SCREENOS_CRED_KEY=${SCREENOS_CRED_KEY:-}
+      - PORT=${PORT:-8000}
+    volumes:
+      # Persist SQLite + encrypted BYOK key across restarts
+      - ./data:/app/data
+    restart: unless-stopped

@@ -15,36 +15,36 @@ SCREENOS is an AI-assisted candidate screening workspace designed for non-techni
 
 ---
 
-## 🚀 Quickstart (3 Steps)
+## 🚀 Quickstart — Local (3 steps) or VPS (1 command)
 
-### 1. Setup Environment
+### Local — for HR on Windows/Mac
+**1. Setup**
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
-
-### 2. Configure API Key
-Create a `.env` file in the root directory (see `.env.example`):
+**2. (Optional) AI key** — skip if using Ollama local. Otherwise copy `.env.example` to `.env` and add one key (fallback). Better: add per-org keys later under **Settings → AI Provider Keys** (encrypted, no env needed).
 ```ini
-# DeepSeek (Default)
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-DEEPSEEK_MODEL=deepseek-v4-flash
-
-# Or Google Gemini
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.8-flash
-
-# Try DeepSeek first, then Gemini if it is unavailable or rate-limited
+DEEPSEEK_API_KEY=sk-your-key
 LLM_PROVIDER=deepseek,gemini
 ```
-
-A deployment-wide key is only a fallback: each organization can store its own keys under **Settings** (DeepSeek, Gemini, Anthropic, OpenAI, Groq, OpenRouter or a local Ollama model), and a second key acts as a fallback. See `docs/runbook.md`.
-
-### 3. Launch the Recruiter Workspace
+**3. Run**
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-Open **`http://127.0.0.1:8000`** in your browser.
+Open **`http://127.0.0.1:8000`** → Help & Guide has the 4-step HR walkthrough.
+
+### VPS / Docker — same code, one command
+```bash
+cp .env.example .env   # then edit SCREENOS_ALLOWED_HOSTS=yourdomain.com
+# Optional: generate BYOK encryption key for cloud
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # paste as SCREENOS_CRED_KEY
+docker compose up --build -d
+# Open http://YOUR_VPS_IP:8000  (or behind Nginx/Caddy for HTTPS)
+```
+- `Dockerfile` + `docker-compose.yml` included — no manual venv on server. `data/` persists SQLite + encrypted keys.
+- `SCREENOS_ALLOWED_HOSTS` = your domain/IP (comma sep). `SCREENOS_CRED_KEY` = strong random for BYOK at rest.
+- Frontend already built (`app/static/build`); backend serves API + UI on same port.
 
 ---
 

@@ -209,7 +209,10 @@ def preview(request: Request, file: UploadFile = File(...)):
             path = Path(folder) / ("resume" + suffix)
             path.write_bytes(data)
             raw_text = extract_text(path)
-    except (ValueError, OSError):
+    except ValueError as exc:
+        # Preserve useful extractor message (e.g. blank page vs generic unreadable)
+        raise HTTPException(400, str(exc)) from None
+    except OSError:
         raise HTTPException(400, "Could not read this CV. Check the file format.") from None
     if not raw_text.strip():
         raise HTTPException(400, "Could not extract text from this CV.")
@@ -246,13 +249,36 @@ MAX_ARCHIVE = 25 * 1024 * 1024
 
 
 @app.post("/api/preview/batch")
-def preview_batch(request: Request, file: UploadFile = File(...)):
+async def preview_batch(request: Request):
+    """Bulk: accepts ZIP (field `file`) OR multiple CVs (fields `file`/`files`). HR can select 50 PDFs directly."""
     ctx = auth.authorize(request)
-    data = file.file.read(MAX_ARCHIVE + 1)
-    if len(data) > MAX_ARCHIVE:
-        raise HTTPException(413, "Batch upload exceeds 25 MB.")
+    form = await request.form()
+    # Collect all uploaded files under `file` or `files`
+    uploads = []
+    for key in ("file", "files"):
+        for item in form.getlist(key):
+            # Starlette FileUpload has .filename and async .read()
+            if hasattr(item, "filename") and item.filename:
+                data = await item.read()
+                uploads.append((data, item.filename))
+    if not uploads:
+        raise HTTPException(400, "No files provided. Choose PDF/DOCX/TXT or a ZIP.")
+    # Single ZIP path (existing behaviour)
+    if len(uploads) == 1 and Path(uploads[0][1]).suffix.lower() == ".zip":
+        data, _ = uploads[0]
+        if len(data) > MAX_ARCHIVE:
+            raise HTTPException(413, "Batch upload exceeds 25 MB.")
+        try:
+            return batch.ingest(ctx, data)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    # Direct bulk path (HR selects many PDFs)
     try:
-        return batch.ingest(ctx, data)
+        # also enforce total size cap 25 MB for direct bulk
+        total = sum(len(d) for d, _ in uploads)
+        if total > MAX_ARCHIVE:
+            raise ValueError("Batch upload exceeds 25 MB. ZIP or select fewer files.")
+        return batch.ingest_files(ctx, uploads)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
 

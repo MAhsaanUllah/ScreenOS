@@ -68,6 +68,16 @@ export default function Help() {
           </ul>
         </section>
 
+        <section className="bg-white border border-amber-200 rounded-lg p-6">
+          <h2 className="panel-title">Trouble uploading PDF? (Scanned / blank pages)</h2>
+          <p className="text-sm text-slate-600 mt-2">If you see <em>“A PDF page has no readable text”</em>: that PDF is a scanned image, not real text. Fix in 30 seconds:</p>
+          <ul className="text-sm text-slate-600 list-disc list-inside space-y-1 mt-2">
+            <li><strong>Easiest:</strong> Open the CV in Word → Save As <strong>DOCX</strong> or <strong>TXT</strong> and upload that.</li>
+            <li><strong>Bulk:</strong> Select 50 PDFs directly (no ZIP needed) or upload one ZIP with up to 50 files — both work now.</li>
+            <li><strong>OCR option (advanced):</strong> Install Tesseract on server + <code className="px-1 py-0.5 bg-slate-100 rounded text-xs">pip install pytesseract Pillow</code> → scanned PDFs will auto-OCR. Local HR doesn’t need this — just use DOCX.</li>
+          </ul>
+        </section>
+
         <section className="bg-slate-50 border border-slate-200 rounded-lg p-6">
           <h3 className="text-sm font-bold text-slate-900">Need help?</h3>
           <p className="text-sm text-slate-600 mt-1">Ask your workspace admin, or use the sample CV first. For compliance, every score keeps the exact CV quote and a document hash — auditable anytime under <em>Compliance</em>.</p>
