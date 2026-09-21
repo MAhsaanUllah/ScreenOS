@@ -11,13 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 ENDPOINT = "https://api.deepseek.com/chat/completions"
 
 
-def complete(messages: list[dict[str, str]]) -> str:
+def complete(messages: list[dict[str, str]], *, key: str | None = None,
+             model: str | None = None) -> str:
     settings = {**dotenv_values(ROOT / ".env"), **os.environ}
-    key = (settings.get("DEEPSEEK_API_KEY") or "").strip()
-    model = settings.get("DEEPSEEK_MODEL") or "deepseek-v4-flash"
+    key = (key or settings.get("DEEPSEEK_API_KEY") or "").strip()
+    model = (model or settings.get("DEEPSEEK_MODEL") or "deepseek-v4-flash").strip()
     endpoint = settings.get("DEEPSEEK_BASE_URL") or ENDPOINT
     if not key:
-        raise ValueError("Add your DeepSeek key as DEEPSEEK_API_KEY in .env.")
+        raise ValueError("Add your DeepSeek key in Settings or as DEEPSEEK_API_KEY in .env.")
     if endpoint.rstrip("/") != ENDPOINT:
         raise ValueError("DEEPSEEK_BASE_URL must be the configured DeepSeek chat-completions endpoint.")
     request = Request(ENDPOINT, data=json.dumps({"model": model, "messages": messages}).encode("utf-8"),

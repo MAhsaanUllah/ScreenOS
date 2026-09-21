@@ -13,12 +13,13 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def complete(messages: list[dict[str, str]]) -> str:
+def complete(messages: list[dict[str, str]], *, key: str | None = None,
+             model: str | None = None) -> str:
     load_dotenv(ROOT / ".env", override=False)
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+    key = (key or os.getenv("GEMINI_API_KEY", "")).strip()
+    model = (model or os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip()
     if not key:
-        raise ValueError("Set GEMINI_API_KEY in the project .env file.")
+        raise ValueError("Add your Gemini key in Settings or as GEMINI_API_KEY in .env.")
     if not re.fullmatch(r"gemini-[a-zA-Z0-9.-]+", model):
         raise ValueError("GEMINI_MODEL must be a Gemini model ID.")
     body = {"systemInstruction": {"parts": [{"text": messages[0]["content"]}]},
