@@ -1,6 +1,6 @@
 import { loadSession, clearSession } from './session.js'
 
-const OFFLINE = 'Cannot reach the API. Start it with: .\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --port 8000'
+const OFFLINE = 'Cannot reach the server. Please check your connection and try again.'
 
 export async function api(path, options = {}) {
   const session = loadSession()
@@ -29,7 +29,7 @@ export async function api(path, options = {}) {
     try { data = JSON.parse(text) } catch { data = {} }
   }
   if (!response.ok) {
-    throw new Error(typeof data.detail === 'string' ? data.detail : `${OFFLINE} (HTTP ${response.status})`)
+    throw new Error(typeof data.detail === 'string' ? data.detail : `Server error (HTTP ${response.status}). Please try again.`)
   }
   if (!text) {
     throw new Error(OFFLINE)
