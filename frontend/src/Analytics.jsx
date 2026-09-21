@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import { PageHeader, EmptyState } from './ui.jsx'
 
 const VERDICT_BAR = {
   STRONG_MATCH: 'bg-emerald-500',
@@ -57,20 +58,20 @@ export default function Analytics() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Team Insights</p>
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="text-sm text-slate-600 mt-0.5">Live queue metrics computed from your organization's reviews.</p>
-        <button onClick={exportCompliance} disabled={busy} className="btn-approve mt-3">
-          {busy ? 'Preparing…' : '⬇ Export compliance report'}
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Team Insights"
+        title="Analytics"
+        description="Live queue metrics computed from your organization's reviews."
+        action={
+          <button onClick={exportCompliance} disabled={busy} className="btn-approve">
+            {busy ? 'Preparing…' : '⬇ Export compliance report'}
+          </button>
+        }
+      />
 
       {reviews.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
-          <div className="text-3xl mb-3 text-slate-300">📈</div>
-          <p className="text-sm">Screen candidates to start seeing metrics.</p>
-        </div>
+        <EmptyState icon="📈" title="Screen candidates to start seeing metrics."
+          description="Queue numbers, verdicts and approval rates appear here once you run your first review." />
       ) : (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-4 gap-4 max-lg:grid-cols-2">

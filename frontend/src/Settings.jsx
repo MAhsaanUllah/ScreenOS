@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { saveSession } from './session.js'
+import { PageHeader, Alert } from './ui.jsx'
 
 export default function Settings({ session, onSessionChange }) {
   const [org, setOrg] = useState(null)
@@ -82,15 +83,10 @@ export default function Settings({ session, onSessionChange }) {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Workspace Configuration</p>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-slate-600 mt-0.5">
-          {isAdmin
-            ? 'Manage organization profile, password and bring-your-own-key provider credentials.'
-            : 'Only admins can change organization and provider settings. Your own password can always be changed.'}
-        </p>
-      </div>
+      <PageHeader eyebrow="Workspace Configuration" title="Settings"
+        description={isAdmin
+          ? 'Manage organization profile, password and bring-your-own-key provider credentials.'
+          : 'Only admins can change organization and provider settings. Your own password can always be changed.'} />
 
       <div className="flex flex-col gap-6 max-w-3xl">
         <section className="bg-white border border-slate-200 rounded-xl p-5">
@@ -116,6 +112,7 @@ export default function Settings({ session, onSessionChange }) {
 
         <section className="bg-white border border-slate-200 rounded-xl p-5">
           <h2 className="text-[15px] font-semibold mb-4">Password</h2>
+          {passMsg && <Alert tone={passMsg.startsWith('Password changed') ? 'success' : 'error'}>{passMsg}</Alert>}
           <form onSubmit={changePassword} className="flex flex-col gap-3">
             <input type="password" placeholder="Current password" minLength={8} required
               value={pass.current} onChange={e => setPass({ ...pass, current: e.target.value })}
@@ -125,7 +122,6 @@ export default function Settings({ session, onSessionChange }) {
               className="px-3 py-2 border border-slate-300 rounded-md text-sm" />
             <div className="flex items-center gap-3">
               <button className="btn-primary" disabled={busy}>Change password</button>
-              {passMsg && <span className={`text-xs ${passMsg.startsWith('Password changed') ? 'text-emerald-600' : 'text-rose-600'}`}>{passMsg}</span>}
             </div>
           </form>
         </section>

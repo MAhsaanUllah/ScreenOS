@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import { PageHeader, Badge } from './ui.jsx'
 
 const ROLE_BADGE = { ADMIN: 'bg-emerald-50 text-emerald-700', RECRUITER: 'bg-blue-50 text-blue-700' }
 
@@ -44,13 +45,10 @@ export default function Team({ session }) {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Organization Access</p>
-        <h1 className="text-2xl font-bold tracking-tight">Team & Roles</h1>
-        <p className="text-sm text-slate-600 mt-0.5">
-          Members are added by email. {isAdmin ? 'You are an admin and can add members or change roles.' : 'Only admins can manage the team.'}
-        </p>
-      </div>
+      <PageHeader eyebrow="Organization Access" title="Team & Roles"
+        description={isAdmin
+          ? 'Members are added by email. You are an admin and can add members or change roles.'
+          : 'Only admins can manage the team. Here is the current roster.'} />
 
       {isAdmin && (
         <form onSubmit={add} className="bg-white border border-slate-200 rounded-xl p-4 mb-5 flex gap-3 items-end max-sm:flex-col">
@@ -89,7 +87,7 @@ export default function Team({ session }) {
                   {m.id === session.user.id && <span className="text-xs text-slate-400 ml-2">(you)</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[m.role] || 'bg-slate-100 text-slate-600'}`}>{m.role}</span>
+                  <Badge className={ROLE_BADGE[m.role] || 'bg-slate-100 text-slate-600'}>{m.role}</Badge>
                 </td>
                 {isAdmin && (
                   <td className="px-4 py-3">

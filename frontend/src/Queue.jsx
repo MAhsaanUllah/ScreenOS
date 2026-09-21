@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { Scorecard, VerdictBadge } from './Criterion.jsx'
+import { PageHeader, EmptyState, Badge } from './ui.jsx'
 
 const FILTERS = [
   { id: 'ALL', label: 'All' },
@@ -43,11 +44,8 @@ export default function Queue() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Team Screening</p>
-        <h1 className="text-2xl font-bold tracking-tight">Candidate Queue</h1>
-        <p className="text-sm text-slate-600 mt-0.5">All candidate reviews in your organization. Candidates stay anonymous until a decision.</p>
-      </div>
+      <PageHeader eyebrow="Team Screening" title="Candidate Queue"
+        description="All candidate reviews in your organization. Candidates stay anonymous until a decision." />
 
       <div className="flex gap-2 mb-4">
         {FILTERS.map(f => (
@@ -62,10 +60,8 @@ export default function Queue() {
       </div>
 
       {shown.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
-          <div className="text-3xl mb-3 text-slate-300">🗂️</div>
-          <p className="text-sm">No candidates here yet. Upload & screen your first CV.</p>
-        </div>
+        <EmptyState icon="🗂️" title="No candidates here yet."
+          description="Upload & screen your first CV to fill the queue." />
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
@@ -86,7 +82,7 @@ export default function Queue() {
                   <td className="px-4 py-3 font-semibold">{r.score !== null ? <span className="font-mono">{r.score}<span className="text-slate-400">/100</span></span> : '—'}</td>
                   <td className="px-4 py-3">{r.verdict ? <VerdictBadge verdict={r.verdict} /> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_PILL[r.status] || STATUS_PILL.PENDING}`}>{r.status}</span>
+                    <Badge className={STATUS_PILL[r.status] || STATUS_PILL.PENDING}>{r.status}</Badge>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right">
@@ -108,7 +104,7 @@ export default function Queue() {
             <div className="flex items-center justify-between px-6 pt-5">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs text-slate-500">{open}</span>
-                {detail?.decision && <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${STATUS_PILL[detail.decision]}`}>{detail.decision}</span>}
+                {detail?.decision && <Badge className={STATUS_PILL[detail.decision]}>{detail.decision}</Badge>}
               </div>
               <button onClick={() => setOpen(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none" aria-label="Close">✕</button>
             </div>

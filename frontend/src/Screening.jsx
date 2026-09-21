@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { api } from './api.js'
 import { Scorecard } from './Criterion.jsx'
+import { PageHeader, Alert } from './ui.jsx'
 
 const SAMPLE = `FICTIONAL SAMPLE - not a real applicant
 Amina Example
@@ -130,19 +131,10 @@ export default function Screening() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">High-Trust Recruiter Workspace</p>
-        <h1 className="text-2xl font-bold tracking-tight">Evidence First. Human Decision.</h1>
-        <p className="text-sm text-slate-600 mt-0.5">Screen CVs against verifiable requirements. Positive points require direct quotes.</p>
-      </div>
+      <PageHeader eyebrow="High-Trust Recruiter Workspace" title="Evidence First. Human Decision."
+        description="Screen CVs against verifiable requirements. Positive points require direct quotes." />
 
-      <div
-        role="status"
-        aria-live="polite"
-        className={`px-4 py-3 rounded-md text-[13px] font-medium mb-5 flex items-center gap-2 ${
-          notice.error ? 'bg-rose-50 border border-rose-200 text-rose-700' : 'bg-blue-50 border border-blue-200 text-blue-800'
-        }`}
-      >{notice.text}</div>
+      <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
       <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
         <section className="panel">

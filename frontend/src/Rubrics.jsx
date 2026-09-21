@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import { PageHeader } from './ui.jsx'
 
 export default function Rubrics() {
   const [rubric, setRubric] = useState(null)
@@ -10,11 +11,8 @@ export default function Rubrics() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <div className="mb-5">
-        <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Scoring Criteria</p>
-        <h1 className="text-2xl font-bold tracking-tight">Active Rubric</h1>
-        <p className="text-sm text-slate-600 mt-0.5">{rubric ? rubric.job : 'Loading rubric...'}</p>
-      </div>
+      <PageHeader eyebrow="Scoring Criteria" title="Active Rubric"
+        description={rubric ? rubric.job : 'Loading rubric...'} />
 
       {rubric && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
