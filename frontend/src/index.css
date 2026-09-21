@@ -32,10 +32,15 @@
     @apply block text-[13px] font-semibold text-slate-900 mb-1;
   }
   .panel {
-    @apply bg-white border border-slate-200 rounded-xl p-6 shadow-sm;
+    @apply bg-white border border-slate-200 rounded-xl p-6 shadow-panel;
   }
   .panel-title {
     @apply text-[15px] font-semibold mb-4;
+  }
+  .metric {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    font-weight: 600;
   }
   .pill-green {
     @apply bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-2 py-0.5 rounded;
@@ -51,9 +56,9 @@
 .verdict-possible { @apply bg-amber-50 text-amber-700 border-amber-200; }
 .verdict-weak { @apply bg-slate-50 text-slate-500 border-slate-200; }
 .criterion-card { @apply border border-slate-200 rounded-lg p-4 bg-white; }
-.criterion-card.met { border-left: 4px solid #059669; }
-.criterion-card.partial { border-left: 4px solid #d97706; }
-.criterion-card.notfound { border-left: 4px solid #64748b; }
+.criterion-card.met { border-left: 4px solid #22a06b; }
+.criterion-card.partial { border-left: 4px solid #b38600; }
+.criterion-card.notfound { border-left: 4px solid #626f86; }
 .quote-block {
   font-family: 'JetBrains Mono', monospace;
   @apply text-xs leading-relaxed bg-slate-50 border border-slate-200 rounded-md p-3 mt-2 whitespace-pre-wrap break-words;
