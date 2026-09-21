@@ -18,10 +18,29 @@ function StatCard({ label, value, accent }) {
 
 export default function Analytics() {
   const [reviews, setReviews] = useState([])
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     api('/api/reviews').then(setReviews).catch(err => alert(err.message))
   }, [])
+
+  async function exportCompliance() {
+    setBusy(true)
+    try {
+      const data = await api('/api/compliance')
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `screenos-compliance-${data.generated_at ? data.generated_at.slice(0, 10) : 'report'}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const scored = reviews.filter(r => r.score !== null)
   const avg = scored.length ? (scored.reduce((sum, r) => sum + r.score, 0) / scored.length).toFixed(1) : '—'
@@ -42,6 +61,9 @@ export default function Analytics() {
         <p className="text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-1">Team Insights</p>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         <p className="text-sm text-slate-600 mt-0.5">Live queue metrics computed from your organization's reviews.</p>
+        <button onClick={exportCompliance} disabled={busy} className="btn-approve mt-3">
+          {busy ? 'Preparing…' : '⬇ Export compliance report'}
+        </button>
       </div>
 
       {reviews.length === 0 ? (

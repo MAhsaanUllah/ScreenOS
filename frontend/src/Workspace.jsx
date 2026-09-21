@@ -93,7 +93,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           {view === 'analytics' && <Analytics key={session.org.id} />}
           {view === 'rubrics' && <Rubrics />}
           {view === 'team' && <Team key={session.org.id} session={session} />}
-          {view === 'settings' && <Settings key={session.org.id} session={session} />}
+          {view === 'settings' && <Settings key={session.org.id} session={session} onSessionChange={onSessionChange} />}
         </main>
       </div>
     </div>
