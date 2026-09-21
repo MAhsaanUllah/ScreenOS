@@ -1,10 +1,13 @@
-"""Local single-operator recruiter UI. Bind only to 127.0.0.1."""
+"""Multi-tenant recruiter workspace API.
+
+All /api routes (except auth) require a bearer session token and are scoped
+to the organization bound to that session.
+"""
 
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
-from threading import Lock
 from typing import Literal
 from uuid import uuid4
 
@@ -14,18 +17,20 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app import auth, credentials, db, orgs, rubrics, team
+from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import prepare_candidate, wrap_candidate_data
-from app.providers import ScoringUnavailable, complete
-from app.scorer import score_prepared
+from app.providers import CATALOG, ScoringUnavailable, complete
+from app.scorer import rubric_info, score_prepared
 
 ROOT = Path(__file__).resolve().parents[1]
 app = FastAPI(title="SCREENOS", docs_url=None, redoc_url=None)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
 app.mount("/static", StaticFiles(directory=ROOT / "app/static"), name="static")
-# Local demo only: at most 20 in-memory reviews. Restart clears unsaved previews.
-reviews = {}
-lock = Lock()
+build_assets = ROOT / "app/static/build/assets"
+if build_assets.is_dir():
+    app.mount("/assets", StaticFiles(directory=build_assets), name="assets")
 
 
 @app.middleware("http")
@@ -38,17 +43,113 @@ async def local_boundary(request: Request, call_next):
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'"
+    )
     return response
 
 
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "app/static/index.html")
+    build = ROOT / "app/static/build/index.html"
+    return FileResponse(build if build.is_file() else ROOT / "app/static/index.html")
+
+
+class RegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    org_name: str
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    password: str
+
+
+class SwitchOrgRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    org_id: str = Field(min_length=1)
+
+
+@app.post("/api/auth/register")
+def register(body: RegisterRequest):
+    return auth.register(body.org_name, body.email, body.password)
+
+
+@app.post("/api/auth/login")
+def login(body: LoginRequest):
+    return auth.login(body.email, body.password)
+
+
+@app.post("/api/auth/switch-org")
+def switch_org(request: Request, body: SwitchOrgRequest):
+    token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    return auth.switch_org(token, body.org_id)
+
+
+def _review(token: str, ctx: dict) -> dict:
+    review = db.row("SELECT * FROM reviews WHERE id = ? AND org_id = ?", (token, ctx["org_id"]))
+    if not review:
+        raise HTTPException(404, "Review expired. Upload the CV again.")
+    return review
+
+
+def _summary(review: dict) -> dict:
+    card = json.loads(review["card"]) if review["card"] else None
+    return {
+        "id": review["id"],
+        "short": review["id"][:8],
+        "created_at": review["created_at"],
+        "decision": review["decision"],
+        "status": review["decision"] or ("SCORED" if card else "PENDING"),
+        "score": card["overall_score"] if card else None,
+        "verdict": card["verdict"] if card else None,
+    }
+
+
+@app.get("/api/reviews")
+def list_reviews(request: Request):
+    ctx = auth.authorize(request)
+    return [_summary(r) for r in db.rows(
+        "SELECT id, card, decision, created_at FROM reviews WHERE org_id = ? ORDER BY created_at DESC",
+        (ctx["org_id"],),
+    )]
+
+
+@app.get("/api/reviews/{token}")
+def review_detail(token: str, request: Request):
+    ctx = auth.authorize(request)
+    review = _review(token, ctx)
+    return {"cleaned_text": review["cleaned_text"],
+            "card": json.loads(review["card"]) if review["card"] else None,
+            "decision": review["decision"],
+            "reviewer_notes": review["reviewer_notes"],
+            "decided_at": review["decided_at"]}
+
+
+@app.get("/api/rubric")
+def rubric():
+    return rubric_info(rubrics.path_for(rubrics.DEFAULT))
+
+
+@app.get("/api/rubrics")
+def rubric_list():
+    return rubrics.list_rubrics()
+
+
+@app.get("/api/analytics")
+def analytics(request: Request):
+    ctx = auth.authorize(request)
+    return for_org(ctx["org_id"])
 
 
 @app.post("/api/preview")
-def preview(file: UploadFile = File(...), name: str = Form(...), address: str = Form(""), years: str = Form("")):
+def preview(request: Request, file: UploadFile = File(...), name: str = Form(...),
+            address: str = Form(""), years: str = Form("")):
+    ctx = auth.authorize(request)
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".txt", ".pdf", ".docx"}:
         raise HTTPException(400, "Choose a PDF, DOCX or TXT file.")
@@ -66,43 +167,47 @@ def preview(file: UploadFile = File(...), name: str = Form(...), address: str = 
             raise ValueError("Resume text is too long; use a shorter CV.")
     except (ValueError, OSError):
         raise HTTPException(400, "Could not prepare this CV. Check the file, name and comma-separated graduation years.") from None
-    with lock:
-        if len(reviews) >= 20:
-            raise HTTPException(429, "Review limit reached. Restart the local server to clear unsaved reviews.")
-        token = uuid4().hex
-        reviews[token] = {"candidate": candidate, "busy": False, "card": None, "decision": None}
-    return {"review_id": token, "cleaned_text": candidate["cleaned_text"]}
+    review_id = uuid4().hex
+    db.run(
+        "INSERT INTO reviews (id, org_id, created_by, candidate_hash, cleaned_text, "
+        "candidate_data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (review_id, ctx["org_id"], ctx["user_id"], candidate["candidate_hash"],
+         candidate["cleaned_text"], candidate["candidate_data"], datetime.now(timezone.utc).isoformat()),
+    )
+    return {"review_id": review_id, "cleaned_text": candidate["cleaned_text"]}
 
 
 class ScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cleaned_text: str = Field(min_length=1, max_length=100000)
+    job_id: str = rubrics.DEFAULT
 
 
 @app.post("/api/reviews/{token}/score")
-def score(token: str, body: ScoreRequest):
-    with lock:
-        review = reviews.get(token)
-        if not review:
-            raise HTTPException(404, "Review expired. Upload the CV again.")
-        if review["busy"] or review["card"]:
-            raise HTTPException(409, "This review is already scoring or scored.")
-        review["busy"] = True
+def score(token: str, request: Request, body: ScoreRequest):
+    ctx = auth.authorize(request)
+    review = _review(token, ctx)
+    if review["card"]:
+        raise HTTPException(409, "This review is already scored.")
+    candidate = {"candidate_hash": review["candidate_hash"], "cleaned_text": body.cleaned_text,
+                 "candidate_data": wrap_candidate_data(body.cleaned_text)}
     try:
-        candidate = dict(review["candidate"], cleaned_text=body.cleaned_text,
-                         candidate_data=wrap_candidate_data(body.cleaned_text))
-        card = score_prepared(candidate, complete=complete, rubric_path=ROOT / "rubrics/rubric.md")
-        with lock:
-            review["candidate"] = candidate
-            review["card"] = card.model_dump()
-        return review["card"]
+        rubric_path = rubrics.path_for(body.job_id)
+    except KeyError:
+        raise HTTPException(400, "Choose a job rubric that exists.") from None
+    org_keys = credentials.resolve(ctx["org_id"])
+    transport = (lambda messages: complete(messages, credentials=org_keys)) if org_keys else complete
+    try:
+        card = score_prepared(candidate, complete=transport, rubric_path=rubric_path, job_id=body.job_id)
     except ScoringUnavailable as exc:
-        raise HTTPException(503, str(exc)) from None
+        hint = "" if org_keys else " An admin can add a provider key in Settings."
+        raise HTTPException(503, str(exc) + hint) from None
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
-    finally:
-        with lock:
-            review["busy"] = False
+    payload = card.model_dump()
+    db.run("UPDATE reviews SET card = ?, cleaned_text = ? WHERE id = ?",
+           (json.dumps(payload, ensure_ascii=False), body.cleaned_text, token))
+    return payload
 
 
 class DecisionRequest(BaseModel):
@@ -112,22 +217,101 @@ class DecisionRequest(BaseModel):
 
 
 @app.post("/api/reviews/{token}/decision")
-def decide(token: str, body: DecisionRequest):
-    with lock:
-        review = reviews.get(token)
-        if not review or not review["card"]:
-            raise HTTPException(409, "Generate and review a scorecard first.")
-        if review["decision"]:
-            raise HTTPException(409, "Decision already saved. Start a new review to reassess.")
-        record = {"scorecard": review["card"], "decision": body.decision,
-                  "reviewer_notes": body.notes, "decided_at": datetime.now(timezone.utc).isoformat()}
-        try:
-            output = ROOT / "output"
-            output.mkdir(exist_ok=True)
-            pending = output / f"{token}.tmp"
-            pending.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
-            pending.replace(output / f"{token}.json")
-        except OSError:
-            raise HTTPException(500, "Decision could not be saved. Check disk access and retry.") from None
-        review["decision"] = record
+def decide(token: str, request: Request, body: DecisionRequest):
+    ctx = auth.authorize(request)
+    review = _review(token, ctx)
+    if not review["card"]:
+        raise HTTPException(409, "Generate and review a scorecard first.")
+    if review["decision"]:
+        raise HTTPException(409, "Decision already saved. Start a new review to reassess.")
+    record = {"scorecard": json.loads(review["card"]), "decision": body.decision,
+              "reviewer_notes": body.notes, "decided_at": datetime.now(timezone.utc).isoformat()}
+    db.run("UPDATE reviews SET decision = ?, reviewer_notes = ?, decided_at = ? WHERE id = ?",
+           (body.decision, body.notes, record["decided_at"], token))
     return record
+
+
+class MemberRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    role: str = "RECRUITER"
+
+
+class RoleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str
+
+
+@app.get("/api/team")
+def team_list(request: Request):
+    ctx = auth.authorize(request)
+    return team.members(ctx["org_id"])
+
+
+@app.post("/api/team/members")
+def team_add(request: Request, body: MemberRequest):
+    ctx = auth.authorize(request)
+    return team.add_member(ctx, body.email, body.role)
+
+
+@app.post("/api/team/members/{user_id}/role")
+def team_role(user_id: str, request: Request, body: RoleRequest):
+    ctx = auth.authorize(request)
+    return team.set_role(ctx, user_id, body.role)
+
+
+class CredentialRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: str
+    api_key: str
+    model: str = ""
+
+
+@app.get("/api/settings/llm")
+def llm_settings(request: Request):
+    ctx = auth.authorize(request)
+    return credentials.list_keys(ctx["org_id"])
+
+
+@app.get("/api/providers")
+def provider_catalog():
+    """Provider options for the settings dropdown."""
+    return [{"id": name, "label": spec["label"], "default_model": spec["default_model"],
+             "needs_key": spec["needs_key"]}
+            for name, spec in CATALOG.items()]
+
+
+@app.post("/api/settings/llm")
+def set_llm_settings(request: Request, body: CredentialRequest):
+    ctx = auth.authorize(request)
+    return credentials.set_key(ctx, body.provider, body.model, body.api_key)
+
+
+class OrgRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+
+
+class PasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str
+    new_password: str
+
+
+@app.get("/api/settings")
+def settings_profile(request: Request):
+    ctx = auth.authorize(request)
+    return orgs.profile(ctx)
+
+
+@app.post("/api/settings/org")
+def settings_rename(request: Request, body: OrgRequest):
+    ctx = auth.authorize(request)
+    return orgs.rename(ctx, body.name)
+
+
+@app.post("/api/settings/password")
+def settings_password(request: Request, body: PasswordRequest):
+    ctx = auth.authorize(request)
+    auth.change_password(ctx, body.current_password, body.new_password)
+    return {"changed": True}
