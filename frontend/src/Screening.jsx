@@ -82,7 +82,7 @@ export default function Screening() {
       if (picked.length === 1) {
         status('Extracting text and scanning for personal information...')
         const form = new FormData()
-        form.append('file', picked[0])
+        form.append('file', picked[0], picked[0].name)
         const data = await api('/api/preview', { method: 'POST', body: form })
         setRawText(data.raw_text)
         setDetectedPii(data.detected_pii)
@@ -93,7 +93,7 @@ export default function Screening() {
       } else {
         status(`Uploading ${picked.length} files and scanning...`)
         const form = new FormData()
-        picked.forEach(f => form.append('file', f))
+        picked.forEach(f => form.append('file', f, f.name))
         const result = await api('/api/preview/batch', { method: 'POST', body: form })
         setBatch(result)
         status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
