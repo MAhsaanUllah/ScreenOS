@@ -7,6 +7,7 @@ import Rubrics from './Rubrics.jsx'
 import Team from './Team.jsx'
 import Settings from './Settings.jsx'
 import Help from './Help.jsx'
+import HRControls from './HRControls.jsx'
 import { saveSession } from './session.js'
 import { api } from './api.js'
 
@@ -17,6 +18,7 @@ const NAV = [
   { id: 'analytics', label: 'Analytics' },
   { id: 'rubrics', label: 'Rubrics' },
   { id: 'team', label: 'Team & Roles' },
+  { id: 'hrcontrols', label: 'HR Controls' },
   { id: 'settings', label: 'Settings' },
   { id: 'help', label: 'Help & Guide' },
 ]
@@ -90,6 +92,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           {view === 'analytics' && <Analytics key={session.org.id} />}
           {view === 'rubrics' && <Rubrics />}
           {view === 'team' && <Team key={session.org.id} session={session} />}
+          {view === 'hrcontrols' && <HRControls />}
           {view === 'settings' && <Settings key={session.org.id} session={session} onSessionChange={onSessionChange} />}
           {view === 'help' && <Help />}
         </main>

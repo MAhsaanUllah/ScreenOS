@@ -171,6 +171,23 @@ def rubric():
     return rubric_info(rubrics.path_for(rubrics.DEFAULT))
 
 
+@app.put("/api/rubric")
+def rubric_update(request: Request, body: dict):
+    ctx = auth.authorize(request)
+    # HR Controls: only ADMIN can change rubric (keeps Settings clean)
+    from app.team import require_admin
+    require_admin(ctx)
+    rows = body.get("rows") if isinstance(body, dict) else None
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Send rows: [{requirement, points, evidence}].")
+    try:
+        return rubrics.update_rubric(rubrics.DEFAULT, rows)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from None
+
+
 @app.get("/api/rubrics")
 def rubric_list():
     return rubrics.list_rubrics()
