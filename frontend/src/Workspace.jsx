@@ -1,24 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Dashboard from './Dashboard.jsx'
 import Screening from './Screening.jsx'
 import Queue from './Queue.jsx'
 import Analytics from './Analytics.jsx'
 import Rubrics from './Rubrics.jsx'
 import Team from './Team.jsx'
 import Settings from './Settings.jsx'
+import Help from './Help.jsx'
 import { saveSession } from './session.js'
 import { api } from './api.js'
 
 const NAV = [
-  { id: 'upload', label: 'Upload & Screening', ready: true },
-  { id: 'queue', label: 'Candidate Queue', ready: true },
-  { id: 'analytics', label: 'Analytics', ready: true },
-  { id: 'rubrics', label: 'Rubrics', ready: true },
-  { id: 'team', label: 'Team & Roles', ready: true },
-  { id: 'settings', label: 'Settings', ready: true }
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'upload', label: 'Upload & Screening' },
+  { id: 'queue', label: 'Candidate Queue' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'rubrics', label: 'Rubrics' },
+  { id: 'team', label: 'Team & Roles' },
+  { id: 'settings', label: 'Settings' },
+  { id: 'help', label: 'Help & Guide' },
 ]
 
+function HeaderClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
+  return (
+    <div className="text-xs text-slate-500 font-mono">
+      {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+      <span className="mx-1.5 text-slate-300">|</span>
+      {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+    </div>
+  )
+}
+
 export default function Workspace({ session, onSwitch, onSessionChange }) {
-  const [view, setView] = useState('upload')
+  const [view, setView] = useState('dashboard')
   const [error, setError] = useState('')
 
   async function switchOrg(orgId) {
@@ -45,7 +61,8 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           <span className="text-[13px] text-slate-400">/ {session.org.name}</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <HeaderClock />
           {session.orgs.length > 1 && (
             <select
               value={session.org.id}
@@ -68,7 +85,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
 
       <div className="flex flex-1">
         <nav className="w-52 border-r border-slate-200 bg-white p-3 flex flex-col gap-1 shrink-0">
-          {NAV.map(item => item.ready ? (
+          {NAV.map(item => (
             <button
               key={item.id}
               onClick={() => setView(item.id)}
@@ -76,24 +93,18 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
                 view === item.id ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >{item.label}</button>
-          ) : (
-            <div
-              key={item.id}
-              className="text-left text-sm px-3 py-2 rounded-md text-slate-400 flex items-center justify-between cursor-not-allowed"
-            >
-              <span>{item.label}</span>
-              <span className="text-[10px] uppercase text-slate-300">Phase {item.phase}</span>
-            </div>
           ))}
         </nav>
 
         <main className="flex-1 p-6 overflow-auto">
+          {view === 'dashboard' && <Dashboard key={session.org.id} session={session} onNavigate={setView} />}
           {view === 'upload' && <Screening key={session.org.id} onNavigate={setView} />}
           {view === 'queue' && <Queue key={session.org.id} />}
           {view === 'analytics' && <Analytics key={session.org.id} />}
           {view === 'rubrics' && <Rubrics />}
           {view === 'team' && <Team key={session.org.id} session={session} />}
           {view === 'settings' && <Settings key={session.org.id} session={session} onSessionChange={onSessionChange} />}
+          {view === 'help' && <Help />}
         </main>
       </div>
     </div>
