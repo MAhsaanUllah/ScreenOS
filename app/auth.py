@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import secrets
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -17,6 +18,22 @@ from app import db
 
 PASSWORD_MIN = 8
 SESSION_DAYS = 30
+LOCKOUT_ATTEMPTS = 5
+LOCKOUT_SECONDS = 60
+
+# Failed sign-ins per email address and client address.
+# ponytail: in-process only; a multi-instance deployment needs a shared store.
+_attempts: dict[str, list[float]] = {}
+
+
+def _locked_out(key: str) -> bool:
+    now = time.monotonic()
+    recent = [stamp for stamp in _attempts.get(key, []) if now - stamp < LOCKOUT_SECONDS]
+    if recent:
+        _attempts[key] = recent
+    else:
+        _attempts.pop(key, None)
+    return len(recent) >= LOCKOUT_ATTEMPTS
 
 
 def _now() -> str:
@@ -93,11 +110,16 @@ def register(org_name: str, email: str, password: str) -> dict:
     return _payload(token, user, org, "ADMIN")
 
 
-def login(email: str, password: str) -> dict:
+def login(email: str, password: str, client: str = "") -> dict:
     email = (email or "").strip()
+    key = f"{email.lower()}|{client}"
+    if _locked_out(key):
+        raise HTTPException(429, "Too many failed sign-in attempts. Wait a minute and try again.")
     user = db.row("SELECT * FROM users WHERE email = ?", (email,))
     if not user or not _verify_password(password or "", user["pass_salt"], user["pass_hash"]):
+        _attempts.setdefault(key, []).append(time.monotonic())
         raise HTTPException(401, "Email or password is incorrect.")
+    _attempts.pop(key, None)
     orgs = _orgs_for(user["id"])
     if not orgs:
         raise HTTPException(403, "This account has no organizations. Ask an admin to add you.")

@@ -85,8 +85,8 @@ def register(body: RegisterRequest):
 
 
 @app.post("/api/auth/login")
-def login(body: LoginRequest):
-    return auth.login(body.email, body.password)
+def login(request: Request, body: LoginRequest):
+    return auth.login(body.email, body.password, request.client.host if request.client else "")
 
 
 @app.post("/api/auth/switch-org")

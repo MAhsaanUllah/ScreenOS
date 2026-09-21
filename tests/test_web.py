@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 import app.main as web
+from app import auth
 from app.providers import ScoringUnavailable
 
 
@@ -87,6 +88,30 @@ class WebChecks(unittest.TestCase):
         blocked = client.get("/", headers={"Origin": "http://evil.test"})
         self.assertEqual(blocked.status_code, 403)
         self.assertIn("Cross-origin", blocked.json()["detail"])
+
+    def test_repeated_failed_sign_ins_are_locked_out(self):
+        client = self.client
+        client.post("/api/auth/register", headers={"X-Screenos": "1"}, json={
+            "org_name": "Lockout Co", "email": "lockout@acme.test", "password": "password123"})
+        for _ in range(auth.LOCKOUT_ATTEMPTS):
+            self.assertEqual(client.post("/api/auth/login", headers={"X-Screenos": "1"}, json={
+                "email": "lockout@acme.test", "password": "wrong"}).status_code, 401)
+        # Even the correct password is refused while the lockout stands.
+        self.assertEqual(client.post("/api/auth/login", headers={"X-Screenos": "1"}, json={
+            "email": "lockout@acme.test", "password": "password123"}).status_code, 429)
+
+    def test_a_successful_sign_in_clears_the_failure_counter(self):
+        client = self.client
+        client.post("/api/auth/register", headers={"X-Screenos": "1"}, json={
+            "org_name": "Cleared Co", "email": "cleared@acme.test", "password": "password123"})
+        for _ in range(auth.LOCKOUT_ATTEMPTS - 1):
+            client.post("/api/auth/login", headers={"X-Screenos": "1"}, json={
+                "email": "cleared@acme.test", "password": "wrong"})
+        self.assertEqual(client.post("/api/auth/login", headers={"X-Screenos": "1"}, json={
+            "email": "cleared@acme.test", "password": "password123"}).status_code, 200)
+        # The counter started over, so one more failure is 401 rather than a lockout.
+        self.assertEqual(client.post("/api/auth/login", headers={"X-Screenos": "1"}, json={
+            "email": "cleared@acme.test", "password": "wrong"}).status_code, 401)
 
     def test_register_login_and_tenant_boundary(self):
         client = self.client
