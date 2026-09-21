@@ -40,7 +40,6 @@ function StepBar({ current }) {
 export default function Screening() {
   const fileInput = useRef(null)
   const [step, setStep] = useState(1)
-  const [fileName, setFileName] = useState('No file selected')
   const [rawText, setRawText] = useState('')
   const [detectedPii, setDetectedPii] = useState([])
   const [selectedPii, setSelectedPii] = useState(new Set())
@@ -50,34 +49,54 @@ export default function Screening() {
   const [record, setRecord] = useState(null)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState({ text: 'Upload a CV (PDF, DOCX, or TXT) to begin.', error: false })
-  const [batchFiles, setBatchFiles] = useState([])
+  const [notice, setNotice] = useState({ text: 'Upload one or more CVs (PDF, DOCX, or TXT) to begin.', error: false })
+  const [picked, setPicked] = useState([])
   const [batch, setBatch] = useState(null)
+
+  const MAX_FILES = 50
 
   function status(text, error) { setNotice({ text, error: !!error }) }
 
-  function loadSample() {
-    const file = new File([SAMPLE], '01_strong.txt', { type: 'text/plain' })
-    if (fileInput.current) fileInput.current.files = [file]
-    setFileName('01_strong.txt')
-    status('Sample CV loaded. Click "Upload and scan".')
+  function onFilesSelected(files) {
+    const list = [...files].filter(f => /\.(pdf|docx|txt)$/i.test(f.name))
+    if (list.length === 0) { status('Only PDF, DOCX or TXT files are accepted.', true); return }
+    if (list.length > MAX_FILES) { status(`Maximum ${MAX_FILES} files per upload. You selected ${list.length}.`, true); return }
+    setPicked(list)
+    setBatch(null)
+    status(`${list.length} file${list.length === 1 ? '' : 's'} selected. Click "Scan".`)
   }
 
-  // Step 1: upload file → extract text + detect PII
+  function loadSample() {
+    setPicked([new File([SAMPLE], '01_strong.txt', { type: 'text/plain' })])
+    setBatch(null)
+    status('Sample CV loaded. Click "Scan".')
+  }
+
+  // Step 1: single file → PII review, multiple → batch results
   async function handleUpload(e) {
     e.preventDefault()
-    const form = new FormData(e.target)
+    if (!picked.length) return
     setBusy(true)
-    status('Extracting text and scanning for personal information...')
     try {
-      const data = await api('/api/preview', { method: 'POST', body: form })
-      setRawText(data.raw_text)
-      setDetectedPii(data.detected_pii)
-      const allIdx = new Set(data.detected_pii.map((_, i) => i))
-      setSelectedPii(allIdx)
-      setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText('')
-      setStep(2)
-      status(`Found ${data.detected_pii.length} personal detail${data.detected_pii.length === 1 ? '' : 's'}. Review and confirm what to remove.`)
+      if (picked.length === 1) {
+        status('Extracting text and scanning for personal information...')
+        const form = new FormData()
+        form.append('file', picked[0])
+        const data = await api('/api/preview', { method: 'POST', body: form })
+        setRawText(data.raw_text)
+        setDetectedPii(data.detected_pii)
+        setSelectedPii(new Set(data.detected_pii.map((_, i) => i)))
+        setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText('')
+        setStep(2)
+        status(`Found ${data.detected_pii.length} personal detail${data.detected_pii.length === 1 ? '' : 's'}. Review and confirm what to remove.`)
+      } else {
+        status(`Uploading ${picked.length} files and scanning...`)
+        const form = new FormData()
+        picked.forEach(f => form.append('file', f))
+        const result = await api('/api/preview/batch', { method: 'POST', body: form })
+        setBatch(result)
+        status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
+      }
     } catch (err) {
       status(err.message, true)
     } finally {
@@ -159,23 +178,6 @@ export default function Screening() {
     })
   }
 
-  async function handleBatchUpload() {
-    if (!batchFiles.length || busy) return
-    setBusy(true)
-    status('Uploading batch and scanning files...')
-    try {
-      const form = new FormData()
-      batchFiles.forEach(f => form.append('file', f))
-      const result = await api('/api/preview/batch', { method: 'POST', body: form })
-      setBatch(result)
-      status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
-    } catch (err) {
-      status(err.message, true)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function openBatchReview(row) {
     try {
       const detail = await api(`/api/reviews/${row.review_id}`)
@@ -211,86 +213,64 @@ export default function Screening() {
       {step === 1 && (
         <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
           <section className="panel">
-            <h2 className="panel-title">Upload CV</h2>
+            <h2 className="panel-title">Upload CVs</h2>
             <form onSubmit={handleUpload}>
               <div
                 className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors"
+                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-brand-400', 'bg-brand-50') }}
+                onDragLeave={e => { e.currentTarget.classList.remove('border-brand-400', 'bg-brand-50') }}
+                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-brand-400', 'bg-brand-50'); onFilesSelected(e.dataTransfer.files) }}
                 onClick={() => fileInput.current?.click()}
               >
-                <strong className="block text-sm">Choose a resume file or drag it here</strong>
-                <p className="text-xs text-slate-400 mt-1">PDF, DOCX or TXT, up to 10 MB</p>
-                <input ref={fileInput} name="file" type="file" accept=".pdf,.docx,.txt" required className="hidden" />
+                <strong className="block text-sm">{picked.length ? `${picked.length} file${picked.length === 1 ? '' : 's'} selected` : 'Choose files or drag them here'}</strong>
+                <p className="text-xs text-slate-400 mt-1">PDF, DOCX or TXT, up to {MAX_FILES} files</p>
+                <input ref={fileInput} type="file" accept=".pdf,.docx,.txt" multiple className="hidden" onChange={e => onFilesSelected(e.target.files)} />
               </div>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-slate-400">{fileName}</span>
+                <span className="text-xs text-slate-400">{picked.length ? picked.map(f => f.name).join(', ') : 'No file selected'}</span>
                 <button type="button" onClick={loadSample} className="link-btn text-xs">Load sample CV</button>
               </div>
-              <button type="submit" disabled={busy} className="btn-primary mt-4">Upload and scan</button>
+              <button type="submit" disabled={busy || !picked.length} className="btn-primary mt-4">
+                {busy ? 'Scanning...' : `Scan ${picked.length > 1 ? `${picked.length} files` : 'file'}`}
+              </button>
             </form>
 
-            <details className="mt-6 border border-slate-200 rounded-lg p-4 open:pb-4">
-              <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">Bulk import (ZIP or multiple files)</summary>
-              <label className="block text-xs text-slate-500 mt-2 mb-2">
-                Drop a ZIP, or select several PDF, DOCX or TXT files. Names are guessed from filenames.
-              </label>
-              <input
-                type="file"
-                multiple
-                accept=".zip,.pdf,.docx,.txt"
-                onChange={e => setBatchFiles([...e.target.files])}
-                className="block text-sm mb-2"
-              />
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={handleBatchUpload} disabled={busy || !batchFiles.length} className="btn-primary">
-                  Import {batchFiles.length ? `${batchFiles.length} file${batchFiles.length === 1 ? '' : 's'}` : ''}
-                </button>
-                {batch && (
-                  <span className="text-xs text-slate-500">
-                    {batch.accepted} accepted, {batch.skipped.length} skipped
-                  </span>
-                )}
-              </div>
-              {batch && batch.reviews.length > 0 && (
-                <div className="mt-4 border border-slate-200 rounded-md overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-3 py-2">File</th>
-                        <th className="px-3 py-2">Guessed name</th>
-                        <th className="px-3 py-2 text-right">Action</th>
+            {batch && batch.reviews.length > 0 && (
+              <div className="mt-4 border border-slate-200 rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">File</th>
+                      <th className="px-3 py-2">Guessed name</th>
+                      <th className="px-3 py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {batch.reviews.map(r => (
+                      <tr key={r.review_id}>
+                        <td className="px-3 py-2 text-slate-700">{r.filename}</td>
+                        <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
+                        <td className="px-3 py-2 text-right">
+                          <button onClick={() => openBatchReview(r)} className="link-btn text-xs">Open review</button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {batch.reviews.map(r => (
-                        <tr key={r.review_id}>
-                          <td className="px-3 py-2 text-slate-700">{r.filename}</td>
-                          <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
-                          <td className="px-3 py-2 text-right">
-                            <button onClick={() => openBatchReview(r)} className="link-btn text-xs">
-                              Open review
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {batch && batch.skipped.length > 0 && (
-                <div className="mt-2">
-                  {batch.skipped.map(s => (
-                    <p key={s.filename} className="text-xs text-red-600">
-                      Skipped: {s.filename}. {s.reason}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </details>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {batch && batch.skipped.length > 0 && (
+              <div className="mt-2">
+                {batch.skipped.map(s => (
+                  <p key={s.filename} className="text-xs text-red-600">Skipped: {s.filename}. {s.reason}</p>
+                ))}
+              </div>
+            )}
           </section>
           <section className="panel">
             <h2 className="panel-title">How it works</h2>
             <ol className="text-sm text-slate-600 space-y-3 list-decimal list-inside">
-              <li>Upload a CV. The system extracts text and finds personal details automatically.</li>
+              <li>Upload one or more CVs. The system extracts text and finds personal details automatically.</li>
               <li>Review detected PII and confirm what to remove.</li>
               <li>AI scores the candidate against the job rubric with verbatim evidence.</li>
               <li>You make the final hiring decision. Every score includes the exact quote from the CV.</li>
