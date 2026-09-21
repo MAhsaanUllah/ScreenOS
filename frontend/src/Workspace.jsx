@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Dashboard from './Dashboard.jsx'
 import Screening from './Screening.jsx'
 import Queue from './Queue.jsx'
@@ -20,18 +20,6 @@ const NAV = [
   { id: 'settings', label: 'Settings' },
   { id: 'help', label: 'Help & Guide' },
 ]
-
-function HeaderClock() {
-  const [now, setNow] = useState(new Date())
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
-  return (
-    <div className="text-xs text-slate-500 font-mono">
-      {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-      <span className="mx-1.5 text-slate-300">|</span>
-      {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-    </div>
-  )
-}
 
 export default function Workspace({ session, onSwitch, onSessionChange }) {
   const [view, setView] = useState('dashboard')
@@ -61,8 +49,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
           <span className="text-[13px] text-slate-400">/ {session.org.name}</span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <HeaderClock />
+        <div className="flex items-center gap-3">
           {session.orgs.length > 1 && (
             <select
               value={session.org.id}
