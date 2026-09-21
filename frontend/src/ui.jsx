@@ -38,3 +38,18 @@ export function EmptyState({ title, description, action }) {
 export function Badge({ className = '', children }) {
   return <span className={`text-[11px] font-semibold px-2 py-1 rounded inline-flex items-center ${className}`}>{children}</span>
 }
+
+export function HelpTip({ text }) {
+  return (
+    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold ml-1 cursor-help shrink-0" title={text} aria-label={text}>?</span>
+  )
+}
+
+export function GuideBanner({ onHelp }) {
+  return (
+    <div className="mb-6 flex items-center justify-between gap-4 bg-brand-50 border border-brand-200 rounded-lg px-4 py-3">
+      <p className="text-sm text-brand-800"><strong>First time here?</strong> 3-minute guide for non-technical HR — no jargon.</p>
+      <button onClick={onHelp} className="btn-primary px-3 py-1.5 text-xs whitespace-nowrap">Open guide</button>
+    </div>
+  )
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { saveSession } from './session.js'
-import { PageHeader, Alert } from './ui.jsx'
+import { PageHeader, Alert, HelpTip } from './ui.jsx'
 
 export default function Settings({ session, onSessionChange }) {
   const [org, setOrg] = useState(null)
@@ -129,9 +129,12 @@ export default function Settings({ session, onSessionChange }) {
         </section>
 
         <section className="bg-white border border-slate-200 rounded-lg p-5">
-          <h2 className="panel-title">AI Provider Keys</h2>
-          <p className="text-xs text-slate-500 mb-4">
-            Keys are masked after saving and never shown again. Two configured providers are used in order, so the second acts as a fallback when one fails.
+          <h2 className="panel-title">AI Provider Keys <HelpTip text="Like a password that lets the app talk to AI. If you don't have one, use Ollama (local) — no key needed. Ask IT for a key if needed." /></h2>
+          <p className="text-xs text-slate-500 mb-1">
+            Keys are masked after saving (…last4 only) and stored encrypted. Two keys = fallback if one is down.
+          </p>
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5 mb-3">
+            Non-technical? You don’t need to buy anything. Use <strong>Ollama (local)</strong> below — no key, works offline. For DeepSeek/Gemini, ask IT to paste the key.
           </p>
           <div className="flex flex-col gap-3">
             {catalog.map(spec => {

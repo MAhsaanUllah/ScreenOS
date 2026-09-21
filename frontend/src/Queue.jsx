@@ -64,7 +64,7 @@ export default function Queue() {
 
       {shown.length === 0 ? (
         <EmptyState title="No candidates here yet."
-          description="Upload and screen your first CV to fill the queue." />
+          description="Upload your first CV in Upload & Screening. New to this? Help & Guide shows the 4 steps in 3 minutes." />
       ) : (
         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">

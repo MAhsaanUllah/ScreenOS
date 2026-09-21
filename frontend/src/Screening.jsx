@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { api } from './api.js'
 import { Scorecard, VerdictBadge } from './Criterion.jsx'
-import { PageHeader, Alert } from './ui.jsx'
+import { PageHeader, Alert, GuideBanner } from './ui.jsx'
 
 const STEPS = ['Upload', 'Review PII', 'Score', 'Decision']
 
@@ -60,6 +60,13 @@ function StepBar({ current }) {
 export default function Screening({ onNavigate }) {
   const fileInput = useRef(null)
   const [step, setStep] = useState(1)
+  const [showGuide, setShowGuide] = useState(() => {
+    try { return localStorage.getItem('screenos_seen_guide') !== '1' } catch { return true }
+  })
+  function dismissGuide() {
+    try { localStorage.setItem('screenos_seen_guide', '1') } catch { /* ignore */ }
+    setShowGuide(false)
+  }
   const [rawText, setRawText] = useState('')
   const [detectedPii, setDetectedPii] = useState([])
   const [selectedPii, setSelectedPii] = useState(new Set())
@@ -219,6 +226,12 @@ export default function Screening({ onNavigate }) {
 
   return (
     <div className="max-w-[1400px] mx-auto">
+      {showGuide && step === 1 && (
+        <div className="relative">
+          <GuideBanner onHelp={() => { dismissGuide(); onNavigate('help') }} />
+          <button onClick={dismissGuide} className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-xs" aria-label="Dismiss">✕</button>
+        </div>
+      )}
       {step === 1 && !batch && <Hero onNavigate={onNavigate} />}
 
       {step > 1 && (
@@ -292,13 +305,14 @@ export default function Screening({ onNavigate }) {
             )}
           </section>
           <section className="panel">
-            <h2 className="panel-title">How it works</h2>
+            <h2 className="panel-title">How it works (HR-friendly)</h2>
             <ol className="text-sm text-slate-600 space-y-3 list-decimal list-inside">
-              <li>Upload one or more CVs. The system extracts text and finds personal details automatically.</li>
-              <li>Review detected PII and confirm what to remove.</li>
-              <li>AI scores the candidate against the job rubric with verbatim evidence.</li>
-              <li>You make the final hiring decision. Every score includes the exact quote from the CV.</li>
+              <li><strong>Upload</strong> — choose CVs (PDF/DOCX) and click Scan. No technical setup.</li>
+              <li><strong>Review personal info</strong> — system highlights names/emails/phones. Keep checked to remove (fair hiring).</li>
+              <li><strong>Score</strong> — AI checks job requirements and shows exact CV quote for each point.</li>
+              <li><strong>You decide</strong> — Approve or Reject. AI only suggests; you have final say.</li>
             </ol>
+            <button onClick={() => onNavigate('help')} className="link-btn text-xs mt-3">Open full HR guide →</button>
           </section>
         </div>
       )}
