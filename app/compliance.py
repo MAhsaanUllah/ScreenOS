@@ -48,6 +48,22 @@ def report(ctx: dict) -> dict:
     }
 
 
+def rows_csv(ctx: dict) -> str:
+    """The per-candidate records as CSV, filed alongside the JSON summary."""
+    columns = ("candidate_hash", "score", "verdict", "decision", "screened_at", "decided_at")
+    lines = [",".join(columns)]
+    lines += [",".join(_cell(record[column]) for column in columns)
+              for record in report(ctx)["records"]]
+    return "\n".join(lines) + "\n"
+
+
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    text = str(value)
+    return '"' + text.replace('"', '""') + '"' if "," in text or '"' in text else text
+
+
 def _card(value) -> dict:
     if isinstance(value, str):
         try:

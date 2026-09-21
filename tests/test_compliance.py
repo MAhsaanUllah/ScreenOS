@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import os
 import tempfile
@@ -70,3 +72,16 @@ class ComplianceChecks(unittest.TestCase):
         stranger = self._register("Other", "admin@other.test")
         self.assertEqual(self.client.get(
             "/api/compliance", headers=stranger).json()["totals"]["screened"], 0)
+
+    def test_csv_export_has_one_row_per_candidate(self):
+        headers = self._register("Csv Co", "csv@acme.test")
+        self._screened(headers, "APPROVE")
+
+        reply = self.client.get("/api/compliance.csv", headers=headers)
+        self.assertEqual(reply.status_code, 200)
+        self.assertIn("text/csv", reply.headers["content-type"])
+        rows = list(csv.reader(io.StringIO(reply.text)))
+        self.assertEqual(rows[0], ["candidate_hash", "score", "verdict", "decision",
+                                   "screened_at", "decided_at"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1][3], "APPROVE")

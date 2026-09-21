@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 from typing import Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -150,6 +150,12 @@ def analytics(request: Request):
 def compliance_report(request: Request):
     ctx = auth.authorize(request)
     return compliance.report(ctx)
+
+
+@app.get("/api/compliance.csv")
+def compliance_csv(request: Request):
+    ctx = auth.authorize(request)
+    return Response(compliance.rows_csv(ctx), media_type="text/csv")
 
 
 @app.post("/api/preview")
