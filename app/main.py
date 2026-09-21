@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import tempfile
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -32,12 +33,17 @@ if build_assets.is_dir():
     app.mount("/assets", StaticFiles(directory=build_assets), name="assets")
 
 
+def _loopback(origin: str) -> bool:
+    """The Vite dev server serves the workspace from a loopback port while the API stays on 8000."""
+    return urlparse(origin).hostname in {"localhost", "127.0.0.1", "::1"}
+
+
 @app.middleware("http")
 async def local_boundary(request: Request, call_next):
     if request.method != "GET" and request.headers.get("x-screenos") != "1":
         return JSONResponse({"detail": "Use the SCREENOS page to make this request."}, status_code=403)
     origin = request.headers.get("origin")
-    if origin and origin != str(request.base_url).rstrip("/"):
+    if origin and origin != str(request.base_url).rstrip("/") and not _loopback(origin):
         return JSONResponse({"detail": "Cross-origin requests are not allowed."}, status_code=403)
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"

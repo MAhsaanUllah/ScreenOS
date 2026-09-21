@@ -80,6 +80,14 @@ class WebChecks(unittest.TestCase):
         self.assertEqual(result.status_code, 503)
         self.assertIn("preview is safe", result.json()["detail"])
 
+    def test_loopback_dev_origin_is_allowed_but_others_are_not(self):
+        client = self.client
+        self.assertEqual(client.get("/", headers={"Origin": "http://localhost:5174"}).status_code, 200)
+        self.assertEqual(client.get("/", headers={"Origin": "http://127.0.0.1:5175"}).status_code, 200)
+        blocked = client.get("/", headers={"Origin": "http://evil.test"})
+        self.assertEqual(blocked.status_code, 403)
+        self.assertIn("Cross-origin", blocked.json()["detail"])
+
     def test_register_login_and_tenant_boundary(self):
         client = self.client
         registered = client.post("/api/auth/register", headers={"X-Screenos": "1"}, json={
