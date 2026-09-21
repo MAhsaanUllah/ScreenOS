@@ -75,7 +75,8 @@ export default function Screening() {
   // Step 1: single file → PII review, multiple → batch results
   async function handleUpload(e) {
     e.preventDefault()
-    if (!picked.length) return
+    if (!picked.length) { status('No file selected. Choose a PDF, DOCX or TXT first.', true); return }
+    if (!picked[0] || !picked[0].name) { status('File not readable. Try choosing it again.', true); return }
     setBusy(true)
     try {
       if (picked.length === 1) {

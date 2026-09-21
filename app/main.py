@@ -195,9 +195,11 @@ def compliance_csv(request: Request):
 
 
 @app.post("/api/preview")
-def preview(request: Request, file: UploadFile = File(...)):
+def preview(request: Request, file: UploadFile | None = File(None)):
     """Phase 1: extract text and detect PII. No removal, no storage."""
     ctx = auth.authorize(request)
+    if not file or not file.filename:
+        raise HTTPException(400, "No file selected. Click Choose files again and select a PDF, DOCX or TXT.")
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".txt", ".pdf", ".docx"}:
         raise HTTPException(400, "Choose a PDF, DOCX or TXT file.")
