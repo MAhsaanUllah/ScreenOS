@@ -39,6 +39,13 @@ LLM_PROVIDER=deepseek,gemini
 ```
 Open your browser and navigate to: **`http://127.0.0.1:8000`**
 
+### Step 4 (optional): Load demo data
+To explore the workspace without typing a CV in, seed a demo organization:
+```powershell
+.\.venv\Scripts\python.exe scripts/seed_demo.py
+```
+It signs you in as **`demo@screenos.local` / `demo12345`** with four already-scored candidates. These credentials are for local demo data only — never reuse them on a reachable deployment.
+
 ---
 
 ## 🧑‍💻 2. Daily Recruiter Workflow (How to Screen a Candidate)
