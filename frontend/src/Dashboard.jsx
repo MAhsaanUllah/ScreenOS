@@ -61,11 +61,11 @@ export default function Dashboard({ session, onNavigate }) {
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-brand-50 via-white to-slate-50 p-8">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-200 rounded-full blur-3xl opacity-20 -translate-y-1/3 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-emerald-200 rounded-full blur-3xl opacity-15 translate-y-1/3 -translate-x-1/4" />
-        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-amber-100 rounded-full blur-3xl opacity-15 -translate-y-1/2" />
-        <div className="absolute -bottom-8 right-1/4 w-56 h-56 bg-brand-100 rounded-full blur-3xl opacity-20" />
-        <div className="absolute top-4 left-1/2 w-40 h-40 bg-rose-100 rounded-full blur-3xl opacity-10" />
+        <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-brand-300 rounded-full opacity-30" style={{ filter: 'blur(100px)' }} />
+        <div className="absolute -bottom-32 -left-16 w-[350px] h-[350px] bg-emerald-300 rounded-full opacity-25" style={{ filter: 'blur(100px)' }} />
+        <div className="absolute top-1/3 left-1/4 w-[280px] h-[280px] bg-amber-200 rounded-full opacity-20" style={{ filter: 'blur(80px)' }} />
+        <div className="absolute -bottom-10 right-1/3 w-[250px] h-[250px] bg-brand-200 rounded-full opacity-25" style={{ filter: 'blur(90px)' }} />
+        <div className="absolute top-0 left-1/2 w-[200px] h-[200px] bg-red-200 rounded-full opacity-15" style={{ filter: 'blur(80px)' }} />
         <div className="relative flex items-start justify-between">
           <div>
             <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
