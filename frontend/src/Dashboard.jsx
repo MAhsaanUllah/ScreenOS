@@ -80,7 +80,7 @@ export default function Dashboard({ session, onNavigate }) {
           </div>
           <div className="flex items-center gap-6 shrink-0 relative z-10">
             <LiveClock />
-            <div className="relative z-10"><Blobatar name={session.org.name} animate="hover" /></div>
+            <div className="relative z-10 w-12 h-12 shrink-0"><Blobatar name={session.org.name} size={48} animate="hover" /></div>
           </div>
         </div>
         <div className="relative z-10 flex items-center gap-3 mt-6">
