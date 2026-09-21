@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app import auth, credentials, db, orgs, rubrics, team
+from app import auth, compliance, credentials, db, orgs, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import prepare_candidate, wrap_candidate_data
@@ -144,6 +144,12 @@ def rubric_list():
 def analytics(request: Request):
     ctx = auth.authorize(request)
     return for_org(ctx["org_id"])
+
+
+@app.get("/api/compliance")
+def compliance_report(request: Request):
+    ctx = auth.authorize(request)
+    return compliance.report(ctx)
 
 
 @app.post("/api/preview")
