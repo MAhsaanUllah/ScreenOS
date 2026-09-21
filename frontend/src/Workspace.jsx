@@ -98,7 +98,7 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
 
         <main className="flex-1 p-6 overflow-auto">
           {view === 'dashboard' && <Dashboard key={session.org.id} session={session} onNavigate={setView} />}
-          {view === 'upload' && <Screening key={session.org.id} onNavigate={setView} />}
+          {view === 'upload' && <Screening key={session.org.id} />}
           {view === 'queue' && <Queue key={session.org.id} />}
           {view === 'analytics' && <Analytics key={session.org.id} />}
           {view === 'rubrics' && <Rubrics />}
