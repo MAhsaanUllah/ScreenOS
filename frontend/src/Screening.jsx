@@ -14,6 +14,26 @@ Created document search that returned exact source quotes with each answer.
 Designed a database with separate customer access and tested access checks.
 Added 32 automated tests and deployed the service with failure alerts.`
 
+function Hero({ onNavigate }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-brand-50 via-white to-slate-50 p-8 mb-6">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-100 rounded-full blur-3xl opacity-40 -translate-y-1/2 translate-x-1/3" />
+      <div className="relative">
+        <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
+        <h1 className="text-3xl font-bold tracking-tight font-display text-slate-900 mb-2">Evidence first. Human decision.</h1>
+        <p className="text-sm text-slate-500 max-w-xl mb-6">
+          Screen CVs against verifiable requirements. Every positive point includes a direct quote from the source document. No vibes, no gut feel.
+        </p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => onNavigate('upload')} className="btn-primary">Start screening</button>
+          <button onClick={() => onNavigate('queue')} className="btn-ghost">View queue</button>
+          <button onClick={() => onNavigate('analytics')} className="btn-ghost">Analytics</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StepBar({ current }) {
   return (
     <div className="flex items-center gap-1 mb-6">
@@ -37,7 +57,7 @@ function StepBar({ current }) {
   )
 }
 
-export default function Screening() {
+export default function Screening({ onNavigate }) {
   const fileInput = useRef(null)
   const [step, setStep] = useState(1)
   const [rawText, setRawText] = useState('')
@@ -199,11 +219,15 @@ export default function Screening() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <PageHeader
-        eyebrow="High-trust recruiter workspace"
-        title="Evidence first. Human decision."
-        description="Screen CVs against verifiable requirements. Positive points require direct quotes."
-      />
+      {step === 1 && !batch && <Hero onNavigate={onNavigate} />}
+
+      {step > 1 && (
+        <PageHeader
+          eyebrow="High-trust recruiter workspace"
+          title="Evidence first. Human decision."
+          description="Screen CVs against verifiable requirements. Positive points require direct quotes."
+        />
+      )}
 
       <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
