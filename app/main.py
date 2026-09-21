@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import tempfile
 from typing import Literal
-from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -17,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app import auth, compliance, credentials, db, orgs, rubrics, team
+from app import auth, batch, compliance, credentials, db, orgs, reviews, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import prepare_candidate, wrap_candidate_data
@@ -173,14 +172,23 @@ def preview(request: Request, file: UploadFile = File(...), name: str = Form(...
             raise ValueError("Resume text is too long; use a shorter CV.")
     except (ValueError, OSError):
         raise HTTPException(400, "Could not prepare this CV. Check the file, name and comma-separated graduation years.") from None
-    review_id = uuid4().hex
-    db.run(
-        "INSERT INTO reviews (id, org_id, created_by, candidate_hash, cleaned_text, "
-        "candidate_data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (review_id, ctx["org_id"], ctx["user_id"], candidate["candidate_hash"],
-         candidate["cleaned_text"], candidate["candidate_data"], datetime.now(timezone.utc).isoformat()),
-    )
-    return {"review_id": review_id, "cleaned_text": candidate["cleaned_text"]}
+    return {"review_id": reviews.store_review(ctx, candidate),
+            "cleaned_text": candidate["cleaned_text"]}
+
+
+MAX_ARCHIVE = 25 * 1024 * 1024
+
+
+@app.post("/api/preview/batch")
+def preview_batch(request: Request, file: UploadFile = File(...)):
+    ctx = auth.authorize(request)
+    data = file.file.read(MAX_ARCHIVE + 1)
+    if len(data) > MAX_ARCHIVE:
+        raise HTTPException(413, "Batch upload exceeds 25 MB.")
+    try:
+        return batch.ingest(ctx, data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
 
 
 class ScoreRequest(BaseModel):
