@@ -21,7 +21,7 @@ class ScoringFlowChecks(unittest.TestCase):
                 flagged_for_human=True, notes="Offline transport stub; not a real evaluation.",
                 criteria=[dict(criterion=k, weight=v, status="NOT_FOUND", score=0,
                                evidence_quote="") for k, v in payload["rubric"].items()]))
-        kwargs = dict(name="Amina Example", rubric_path=ROOT / "rubrics/rubric.md")
+        kwargs = dict(name="Amina Example", rubric_path=ROOT / "rubrics/ai-engineer.md")
         sample = ROOT / "samples/cvs/01_strong.txt"
         self.assertEqual(score_candidate(sample, complete=response, **kwargs).overall_score, 0)
         def fabricated(messages):
@@ -57,6 +57,6 @@ class ScoringFlowChecks(unittest.TestCase):
         for sample in sorted((ROOT / "samples/cvs").iterdir()):
             with self.subTest(sample=sample.name):
                 card = score_candidate(sample, name="Sample Candidate", complete=response,
-                                       rubric_path=ROOT / "rubrics/rubric.md")
+                                       rubric_path=ROOT / "rubrics/ai-engineer.md")
                 self.assertTrue(card.flagged_for_human)
         self.assertEqual(len(seen), 10)

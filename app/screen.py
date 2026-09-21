@@ -25,7 +25,7 @@ def main() -> int:
             print("\nReview this text. Add --send to send it for scoring.", file=sys.stderr)
         else:
             card = score_candidate(args.file, **options, complete=complete,
-                rubric_path=Path(__file__).resolve().parents[1] / "rubrics/rubric.md")
+                rubric_path=Path(__file__).resolve().parents[1] / "rubrics/ai-engineer.md")
             print(card.model_dump_json(indent=2))
     except (ValueError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

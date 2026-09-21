@@ -26,9 +26,9 @@ ellipses. Use an empty string for every NOT_FOUND quote. Return only JSON matchi
 """
 
 
-def read_rubric(path: str | Path) -> dict[str, float]:
-    """Read the project's three-column Markdown requirement table."""
-    weights = {}
+def read_rubric_rows(path: str | Path) -> list[dict]:
+    """Read and validate the three-column Markdown requirement table."""
+    rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         if not line.strip().startswith("|"):
             continue
@@ -43,12 +43,25 @@ def read_rubric(path: str | Path) -> dict[str, float]:
             weight = float(cells[1])
         except ValueError as exc:
             raise ValueError("Rubric points must be numbers.") from exc
-        if not 0 < weight <= 100 or cells[0] in weights:
+        if not 0 < weight <= 100 or cells[0] in {r["requirement"] for r in rows}:
             raise ValueError("Rubric requires unique requirements and positive finite weights.")
-        weights[cells[0]] = weight
-    if not weights or sum(weights.values()) != 100:
+        rows.append({"requirement": cells[0], "points": weight, "evidence": cells[2]})
+    if not rows or sum(r["points"] for r in rows) != 100:
         raise ValueError("Rubric points must total 100.")
-    return weights
+    return rows
+
+
+def read_rubric(path: str | Path) -> dict[str, float]:
+    """Return requirement weights; used as the trusted rubric in scoring."""
+    return {r["requirement"]: r["points"] for r in read_rubric_rows(path)}
+
+
+def rubric_info(path: str | Path) -> dict:
+    """Rubric view payload: job title plus validated requirement rows."""
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    job = next((line.split(":", 1)[1].strip() for line in lines
+                if line.startswith("# Job:")), "Untitled job")
+    return {"job": job, "rows": read_rubric_rows(path)}
 
 
 def score_candidate(file_path: str | Path, *, name: str,

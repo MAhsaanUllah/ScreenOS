@@ -32,7 +32,7 @@ class EvaluationChecks(unittest.TestCase):
             return json.dumps(card)
         with self.assertRaisesRegex(ValueError, "not copied exactly"):
             score_candidate(sample, name="Zoë Example", complete=fabricated,
-                            rubric_path=ROOT / "rubrics/rubric.md")
+                            rubric_path=ROOT / "rubrics/ai-engineer.md")
 
     def test_career_change_gets_fair_low_baseline(self):
         row = evaluate_sample(ROOT / "samples/cvs/04_career_change.txt")

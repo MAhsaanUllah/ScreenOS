@@ -13,7 +13,7 @@ from app.providers import complete as live_complete
 from app.scorer import SYSTEM_INSTRUCTIONS, score_candidate
 
 
-RUBRIC = ROOT / "rubrics/rubric.md"
+RUBRIC = ROOT / "rubrics/ai-engineer.md"
 SAMPLES = {
     "01_strong.txt": ("Strong evidence", "STRONG_MATCH", "Amina Example"),
     "02_python.docx": ("Python service", "POSSIBLE_MATCH", "Bilal Example"),
