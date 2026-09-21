@@ -25,8 +25,16 @@ from app.providers import CATALOG, ScoringUnavailable, complete
 from app.scorer import rubric_info, score_prepared
 
 ROOT = Path(__file__).resolve().parents[1]
+import os as _os
+# Cloud: set SCREENOS_ALLOWED_HOSTS=example.com,api.example.com
+_allowed = [h.strip() for h in _os.environ.get("SCREENOS_ALLOWED_HOSTS", "").split(",") if h.strip()]
+if not _allowed:
+    _allowed = ["127.0.0.1", "localhost", "testserver"]
+# Always allow testserver for tests
+if "testserver" not in _allowed:
+    _allowed.append("testserver")
 app = FastAPI(title="SCREENOS", docs_url=None, redoc_url=None)
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed)
 app.mount("/static", StaticFiles(directory=ROOT / "app/static"), name="static")
 build_assets = ROOT / "app/static/build/assets"
 if build_assets.is_dir():
@@ -48,9 +56,16 @@ async def local_boundary(request: Request, call_next):
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # HSTS only when behind TLS; harmless locally, enforced when https forwarded
+    if request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self'; "
-        "frame-ancestors 'none'; base-uri 'none'"
+        "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     )
     return response
 
@@ -87,6 +102,21 @@ def register(body: RegisterRequest):
 @app.post("/api/auth/login")
 def login(request: Request, body: LoginRequest):
     return auth.login(body.email, body.password, request.client.host if request.client else "")
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request):
+    ctx = None
+    try:
+        ctx = auth.authorize(request)
+    except HTTPException:
+        # No valid session — still clear any token presented
+        token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+        if token:
+            auth.logout(token)
+        return {"ok": True}
+    auth.logout(ctx["token"])
+    return {"ok": True}
 
 
 @app.post("/api/auth/switch-org")
@@ -312,9 +342,9 @@ def team_role(user_id: str, request: Request, body: RoleRequest):
 
 class CredentialRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    provider: str
-    api_key: str
-    model: str = ""
+    provider: str = Field(min_length=1, max_length=32)
+    api_key: str = Field(max_length=512)
+    model: str = Field(default="", max_length=120)
 
 
 @app.get("/api/settings/llm")

@@ -158,6 +158,12 @@ def change_password(ctx: dict, current: str, new: str) -> None:
     ])
 
 
+def logout(token: str) -> None:
+    """Revoke the current session token (server-side logout)."""
+    if token:
+        db.run("DELETE FROM sessions WHERE id = ?", (token,))
+
+
 def authorize(request: Request) -> dict:
     header = request.headers.get("authorization", "")
     token = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""

@@ -71,6 +71,8 @@ export default function Settings({ session, onSessionChange }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: providerId, api_key: needsKey ? d.key || '' : '', model: d.model || '' })
       }))
+      // Clear key from memory immediately after save to reduce exposure
+      setDrafts(prev => ({ ...prev, [providerId]: { ...prev[providerId], key: '' } }))
       alert(`Saved ${providerId} provider settings.`)
     } catch (err) {
       alert(err.message)
