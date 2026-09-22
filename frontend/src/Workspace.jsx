@@ -75,13 +75,13 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
             <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-semibold flex items-center justify-center">
               {session.user.email.charAt(0).toUpperCase()}
             </span>
-            <button onClick={onSwitch} className="text-xs text-slate-500 hover:text-slate-900">Sign out</button>
+            <button onClick={onSwitch} className="text-xs text-slate-500 hover:text-slate-900 underline decoration-slate-300 underline-offset-2">Sign out</button>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1">
-        <nav className="w-52 border-r border-slate-200 bg-white p-3 flex flex-col gap-1 shrink-0">
+        <nav className="w-52 border-r border-slate-200 bg-white p-3 flex flex-col gap-2 shrink-0">
           {NAV.map(item => (
             <button
               key={item.id}

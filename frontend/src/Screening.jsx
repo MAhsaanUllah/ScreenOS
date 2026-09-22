@@ -217,10 +217,10 @@ export default function Screening() {
 
       <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+      <div className="bg-white border border-slate-200 rounded-lg p-3 mb-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600">Screening for</p>
+            <p className="text-xs font-bold tracking-widest uppercase text-brand-600">Screening for</p>
             <select value={selectedJob} onChange={e => setSelectedJob(e.target.value)} className="mt-1 text-sm border border-slate-300 rounded-md px-2 py-1 bg-white min-w-[220px]">
               <option value="">— Select Job —</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.title} — {j.status} {j.rubric_approved ? '(Approved 100)' : j.rubric ? '(Draft)' : '(No rubric)'}</option>)}
@@ -235,10 +235,10 @@ export default function Screening() {
                   <button onClick={() => alert(job.rubric ? JSON.stringify(job.rubric, null, 2) : 'No rubric yet — generate Draft in HR Controls')} className="link-btn text-xs">View Rubric</button>
                 </div>
               </>
-            ) : <p className="text-xs text-amber-600">Select an OPEN Job with approved rubric to screen.</p>}
+            ) : <p className="text-xs text-slate-500">Select an OPEN Job with approved rubric to screen.</p>}
           </div>
         </div>
-        {!jobReady && selectedJob && <p className="text-xs text-amber-600 mt-2">This Job is not ready — need OPEN + approved 100pt rubric. Fix in HR Controls.</p>}
+        {!jobReady && selectedJob && <p className="text-xs text-slate-500 mt-2">This Job is not ready — need OPEN + approved 100pt rubric. Fix in HR Controls.</p>}
       </div>
 
       <StepBar current={step} />
@@ -267,6 +267,7 @@ export default function Screening() {
               <button type="submit" disabled={busy || !picked.length || !jobReady} className="btn-primary mt-4" title={!jobReady ? 'Select OPEN approved Job first' : ''}>
                 {busy ? 'Scanning...' : `Scan ${picked.length > 1 ? `${picked.length} files` : 'file'}`}
               </button>
+              {!jobReady && <p className="text-xs text-slate-400 mt-1">Select an OPEN Job above to enable scanning.</p>}
             </form>
 
             {batch && batch.reviews.length > 0 && (
@@ -420,7 +421,7 @@ export default function Screening() {
                 </p>
                 <div className="flex gap-2">
                   <button className="btn-ghost" onClick={download}>Download review JSON</button>
-                  <button className="btn-ghost" onClick={() => { setStep(1); setCard(null); setRecord(null); setNotes(''); setFileName('No file selected'); status('Upload a CV to begin.'); }}>Screen another</button>
+                  <button className="btn-ghost" onClick={() => { setStep(1); setCard(null); setRecord(null); setNotes(''); setPicked([]); setBatch(null); status('Upload a CV to begin.'); }}>Screen another</button>
                 </div>
               </div>
             )}

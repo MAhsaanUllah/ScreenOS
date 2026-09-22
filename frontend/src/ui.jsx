@@ -8,7 +8,7 @@ export function PageHeader({ eyebrow, title, description, action }) {
   return (
     <div className="mb-6 flex items-start justify-between gap-4 max-sm:flex-col">
       <div>
-        {eyebrow && <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-1">{eyebrow}</p>}
+        {eyebrow && <p className="text-xs font-bold tracking-widest uppercase text-brand-600 mb-1">{eyebrow}</p>}
         <h1 className="text-2xl font-bold tracking-tight font-display text-slate-900">{title}</h1>
         {description && <p className="text-sm text-slate-500 mt-1 max-w-2xl">{description}</p>}
       </div>

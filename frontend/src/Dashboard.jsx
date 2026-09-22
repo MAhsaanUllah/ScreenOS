@@ -27,16 +27,6 @@ function StatTile({ label, value, color, icon }) {
   )
 }
 
-function QuickAction({ label, description, onClick, accent }) {
-  return (
-    <button onClick={onClick} className="text-left bg-white border border-slate-200 rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50 transition-colors group">
-      <div className={`w-9 h-9 rounded-md flex items-center justify-center text-sm font-bold mb-3 ${accent}`}>{label.charAt(0)}</div>
-      <div className="text-sm font-semibold text-slate-800 group-hover:text-brand-700">{label}</div>
-      <div className="text-xs text-slate-400 mt-1">{description}</div>
-    </button>
-  )
-}
-
 export default function Dashboard({ session, onNavigate }) {
   const [reviews, setReviews] = useState([])
   const [jobs, setJobs] = useState([])
@@ -78,7 +68,7 @@ export default function Dashboard({ session, onNavigate }) {
           {/* Main row: content | mascot | clock */}
           <div className="flex items-center justify-between gap-6">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
+              <p className="text-xs font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
               <h1 className="text-3xl font-bold tracking-tight font-display text-slate-900 mb-2">
                 {session.user.email.split('@')[0] ? `Welcome back, ${session.user.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())}` : 'Welcome back'}
               </h1>
@@ -144,15 +134,6 @@ export default function Dashboard({ session, onNavigate }) {
             </div>
           )}
         </section>
-
-        {/* Quick actions */}
-        <div className="space-y-4">
-          <h2 className="panel-title">Quick actions</h2>
-          <QuickAction label="Screen CV" description="Upload one or more CVs for evidence-based scoring" onClick={() => onNavigate('upload')} accent="bg-brand-50 text-brand-600" />
-          <QuickAction label="Candidate Queue" description="View all candidates, filter by status, open scorecards" onClick={() => onNavigate('queue')} accent="bg-emerald-50 text-emerald-600" />
-          <QuickAction label="Analytics" description="Team metrics, verdict breakdowns, AI vs human discrepancies" onClick={() => onNavigate('analytics')} accent="bg-amber-50 text-amber-600" />
-          <QuickAction label="Job Openings" description="Create jobs, manage rubrics, approve for screening" onClick={() => onNavigate('hrcontrols')} accent="bg-brand-50 text-brand-600" />
-        </div>
       </div>
     </div>
   )
