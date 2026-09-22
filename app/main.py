@@ -575,3 +575,26 @@ def jobs_update(job_id: str, request: Request, body: JobUpdate):
 def jobs_close(job_id: str, request: Request):
     ctx = auth.authorize(request)
     return jobs.close_job(ctx["org_id"], job_id)
+
+
+# --- Job Rubric Draft/Approve (Chunk 2) ---
+@app.post("/api/jobs/{job_id}/rubric/draft")
+def jobs_rubric_draft(job_id: str, request: Request):
+    ctx = auth.authorize(request)
+    # BYOK per org — reuse provider chain
+    creds = credentials.resolve(ctx["org_id"])
+    return jobs.generate_draft(ctx["org_id"], job_id, credentials=creds if creds else None)
+
+
+@app.post("/api/jobs/{job_id}/rubric/approve")
+def jobs_rubric_approve(job_id: str, request: Request):
+    ctx = auth.authorize(request)
+    job = jobs.get_job(ctx["org_id"], job_id)
+    rubric = job.get("rubric")
+    if not rubric:
+        raise HTTPException(400, "Generate a draft rubric first.")
+    total = sum(int(r.get("points", 0)) for r in rubric)
+    if total != 100:
+        raise HTTPException(400, f"Rubric points total {total}, must be 100 before approval.")
+    # validate via existing contract (unique, points range already checked on save)
+    return jobs.update_job(ctx["org_id"], job_id, rubric_approved=1, status="OPEN")

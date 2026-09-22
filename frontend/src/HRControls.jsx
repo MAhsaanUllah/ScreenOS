@@ -106,17 +106,29 @@ export default function HRControls() {
           </form>
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Job ID</th><th className="px-3 py-2 text-right">Action</th></tr></thead>
+              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Rubric</th><th className="px-3 py-2">Job ID</th><th className="px-3 py-2 text-right">Action</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {jobs.length === 0 ? (
-                  <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-slate-400">No jobs yet. Create one above — existing reviews without a Job remain valid.</td></tr>
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-400">No jobs yet. Create one above — existing reviews without a Job remain valid.</td></tr>
                 ) : jobs.map(j => (
-                  <tr key={j.id}><td className="px-3 py-2 text-xs font-medium text-slate-700">{j.title}</td><td className="px-3 py-2"><span className="text-[11px] px-2 py-1 rounded bg-slate-100">{j.status}</span></td><td className="px-3 py-2 font-mono text-[11px] text-slate-500">{j.id.slice(0, 8)}</td><td className="px-3 py-2 text-right">{j.status !== 'CLOSED' && <button onClick={() => closeJob(j.id)} disabled={busy} className="text-xs text-slate-500 hover:text-slate-700">Close</button>}</td></tr>
+                  <tr key={j.id}>
+                    <td className="px-3 py-2 text-xs font-medium text-slate-700">{j.title}</td>
+                    <td className="px-3 py-2"><span className="text-[11px] px-2 py-1 rounded bg-slate-100">{j.status}</span></td>
+                    <td className="px-3 py-2"><span className={`text-[11px] px-2 py-1 rounded ${j.rubric_approved ? 'bg-emerald-50 text-emerald-700' : j.rubric ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{j.rubric_approved ? 'APPROVED' : j.rubric ? 'DRAFT' : '—'}</span></td>
+                    <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{j.id.slice(0, 8)}</td>
+                    <td className="px-3 py-2 text-right flex gap-1 justify-end flex-wrap">
+                      {j.rubric && <button onClick={() => alert(JSON.stringify(j.rubric, null, 2))} className="text-xs text-slate-500">View</button>}
+                      <button onClick={async () => { setBusy(true); try { const nj = await api(`/api/jobs/${j.id}/rubric/draft`, { method: 'POST' }); setJobs(prev => prev.map(x => x.id === j.id ? nj : x)) } catch(e){alert(e.message)} finally{setBusy(false)} }} disabled={busy || !j.jd_text} className="text-xs text-brand-600 hover:text-brand-700 disabled:text-slate-300" title={!j.jd_text ? 'Add JD first' : 'Generate'}>Draft</button>
+                      <button onClick={async () => { const cur = JSON.stringify(j.rubric || []); const ed = prompt('Edit rubric JSON array [{requirement,points,evidence}]:', cur); if(ed===null) return; try { const arr = JSON.parse(ed); const nj = await api(`/api/jobs/${j.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rubric: arr }) }); setJobs(prev => prev.map(x => x.id===j.id?nj:x)) } catch(e){alert(e.message)} }} disabled={busy} className="text-xs text-slate-500">Edit</button>
+                      <button onClick={async () => { setBusy(true); try { const nj = await api(`/api/jobs/${j.id}/rubric/approve`, { method: 'POST' }); setJobs(prev => prev.map(x => x.id===j.id?nj:x)) } catch(e){alert(e.message)} finally{setBusy(false)} }} disabled={busy || !j.rubric || j.rubric_approved} className="text-xs text-emerald-600 disabled:text-slate-300">Approve</button>
+                      {j.status !== 'CLOSED' && <button onClick={() => closeJob(j.id)} disabled={busy} className="text-xs text-slate-400">Close</button>}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-slate-400 mt-2">Existing reviews without a Job stay readable. New reviews may reference a Job in later chunks.</p>
+          <p className="text-[11px] text-slate-400 mt-2">JD → Draft (AI, BYOK) → Edit (add/remove/points) → Approve (100pts) → OPEN. Old scorecards keep old rubric.</p>
         </section>
 
         <section className="bg-white border border-slate-200 rounded-lg p-5">

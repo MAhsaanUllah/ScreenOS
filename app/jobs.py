@@ -107,6 +107,12 @@ def update_job(org_id: str, job_id: str, title: str | None = None, jd_text: str 
         if total != 100:
             raise HTTPException(400, "Rubric points must total 100.")
         updates.append("rubric_json=?"); params.append(json.dumps(rubric, ensure_ascii=False))
+        # editing rubric resets approval to DRAFT unless explicitly re-approved in same call
+        if rubric_approved is None:
+            updates.append("rubric_approved=?"); params.append(0)
+            # if was OPEN, move back to DRAFT for re-approval
+            if cur.get("status") == "OPEN":
+                updates.append("status=?"); params.append("DRAFT")
     if rubric_approved is not None:
         rubric_approved = 1 if rubric_approved else 0
         if rubric_approved and not cur.get("rubric_json") and rubric is None:
@@ -122,3 +128,74 @@ def update_job(org_id: str, job_id: str, title: str | None = None, jd_text: str 
 
 def close_job(org_id: str, job_id: str) -> dict:
     return update_job(org_id, job_id, status="CLOSED")
+
+
+# --- Draft rubric generation (Chunk 2) ---
+import re as _re
+
+_DRAFT_SYSTEM = """You are an HR rubric assistant. Convert a Job Description into a screening rubric.
+- Extract 4-6 distinct, verifiable requirements that can be evidenced in a CV.
+- Each requirement: short title (5-10 words), points (int, sum exactly 100), evidence guidance (what to look for, 8-20 words).
+- Prefer concrete skills/deliverables over generic traits.
+- Return ONLY JSON: {"criteria": [{"requirement": "...", "points": 20, "evidence": "..."}]}
+- Do not make hiring decisions, do not invent requirements not in JD.
+"""
+
+
+def generate_draft(org_id: str, job_id: str, credentials: list[dict] | None = None) -> dict:
+    job = get_job(org_id, job_id)
+    jd = (job.get("jd_text") or "").strip()
+    if len(jd) < 20:
+        raise HTTPException(400, "Add a Job Description (at least 20 characters) before generating rubric.")
+    # call LLM via existing BYOK chain
+    from app.providers import complete, ScoringUnavailable
+    prompt = f"Job Title: {job['title']}\nJob Description:\n{jd}\n\nGenerate rubric JSON."
+    messages = [{"role": "system", "content": _DRAFT_SYSTEM}, {"role": "user", "content": prompt}]
+    try:
+        raw = complete(messages, credentials=credentials)
+    except ScoringUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    # parse JSON — handle markdown fence
+    import json as _json
+    txt = raw.strip()
+    if txt.startswith("```"):
+        txt = _re.sub(r"^```(?:json)?\s*", "", txt)
+        txt = _re.sub(r"\s*```$", "", txt)
+        txt = txt.strip()
+    try:
+        data = _json.loads(txt)
+    except Exception:
+        raise HTTPException(400, "Draft generation returned invalid JSON. Try again.") from None
+    criteria = data.get("criteria") if isinstance(data, dict) else None
+    if not isinstance(criteria, list) or not criteria:
+        raise HTTPException(400, "Draft must contain criteria list.")
+    # normalize to expected shape
+    rubric = []
+    seen = set()
+    total = 0
+    for c in criteria:
+        req = (c.get("requirement") or c.get("criterion") or "").strip()
+        pts = c.get("points")
+        ev = (c.get("evidence") or c.get("guidance") or "").strip()
+        if not req or not ev:
+            raise HTTPException(400, "Each criterion needs requirement and evidence.")
+        if req.lower() in seen:
+            raise HTTPException(400, "Requirement names must be unique.")
+        seen.add(req.lower())
+        try:
+            pts = int(float(pts))
+        except Exception:
+            raise HTTPException(400, "Points must be numbers.") from None
+        if not 5 <= pts <= 50:
+            raise HTTPException(400, "Points per criterion 5-50.")
+        rubric.append({"requirement": req, "points": pts, "evidence": ev})
+        total += pts
+    if total != 100:
+        # auto-scale or reject — reject for HR to review
+        raise HTTPException(400, f"Draft points total {total}, must be 100. Edit before approval.")
+    if not 4 <= len(rubric) <= 6:
+        raise HTTPException(400, "Draft should have 4-6 criteria.")
+    # store as DRAFT (not approved)
+    return update_job(org_id, job_id, rubric=rubric, rubric_approved=0)
