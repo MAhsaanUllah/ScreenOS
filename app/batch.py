@@ -24,7 +24,7 @@ MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ARCHIVE = 25 * 1024 * 1024
 
 
-def ingest(ctx: dict, archive: bytes) -> dict:
+def ingest(ctx: dict, archive: bytes, job_id: str | None = None) -> dict:
     try:
         bundle = zipfile.ZipFile(io.BytesIO(archive))
     except zipfile.BadZipFile:
@@ -64,7 +64,7 @@ def ingest(ctx: dict, archive: bytes) -> dict:
                 continue
             reviews.append({"filename": member.filename, "name_guess": guess,
                             "candidate_hash": candidate["candidate_hash"],
-                            "review_id": store_review(ctx, candidate),
+                            "review_id": store_review(ctx, candidate, job_id=job_id),
                             "detected_pii": detected})
     return {"accepted": len(reviews), "skipped": skipped, "reviews": reviews}
 
@@ -79,7 +79,7 @@ def _reject(member: zipfile.ZipInfo, name: str, guess: str) -> str:
     return ""
 
 
-def ingest_files(ctx: dict, uploads: list[tuple[bytes, str]]) -> dict:
+def ingest_files(ctx: dict, uploads: list[tuple[bytes, str]], job_id: str | None = None) -> dict:
     """Direct bulk: list of (bytes, filename) without ZIP. HR selects 50 files in UI."""
     if not uploads:
         raise ValueError("No files provided.")
@@ -128,6 +128,6 @@ def ingest_files(ctx: dict, uploads: list[tuple[bytes, str]]) -> dict:
             continue
         reviews.append({"filename": filename, "name_guess": guess,
                         "candidate_hash": candidate["candidate_hash"],
-                        "review_id": store_review(ctx, candidate),
+                        "review_id": store_review(ctx, candidate, job_id=job_id),
                         "detected_pii": detected})
     return {"accepted": len(reviews), "skipped": skipped, "reviews": reviews}

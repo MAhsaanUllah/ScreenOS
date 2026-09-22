@@ -52,6 +52,12 @@ export default function Screening() {
   const [notice, setNotice] = useState({ text: 'Upload one or more CVs (PDF, DOCX, or TXT) to begin.', error: false })
   const [picked, setPicked] = useState([])
   const [batch, setBatch] = useState(null)
+  const [jobs, setJobs] = useState([])
+  const [selectedJob, setSelectedJob] = useState('')
+
+  useEffect(() => { api('/api/jobs').then(setJobs).catch(() => {}) }, [])
+  const job = jobs.find(j => j.id === selectedJob) || null
+  const jobReady = job && job.status === 'OPEN' && job.rubric_approved && job.rubric
 
   const MAX_FILES = 50
 
@@ -75,6 +81,7 @@ export default function Screening() {
   // Step 1: single file → PII review, multiple → batch results
   async function handleUpload(e) {
     e.preventDefault()
+    if (!jobReady) { status('Select an OPEN Job with approved rubric (100pts) in HR Controls before screening.', true); return }
     if (!picked.length) { status('No file selected. Choose a PDF, DOCX or TXT first.', true); return }
     if (!picked[0] || !picked[0].name) { status('File not readable. Try choosing it again.', true); return }
     setBusy(true)
@@ -94,6 +101,7 @@ export default function Screening() {
         status(`Uploading ${picked.length} files and scanning...`)
         const form = new FormData()
         picked.forEach(f => form.append('file', f, f.name))
+        form.append('job_id', selectedJob)
         const result = await api('/api/preview/batch', { method: 'POST', body: form })
         setBatch(result)
         status(`Batch processed: ${result.accepted} accepted, ${result.skipped.length} skipped.`)
@@ -105,7 +113,7 @@ export default function Screening() {
     }
   }
 
-  // Step 2: confirm PII removals → store review
+  // Step 2: confirm PII removals → store review (job-aware)
   async function handleConfirmPii() {
     setBusy(true)
     status('Applying redactions and preparing candidate record...')
@@ -114,6 +122,7 @@ export default function Screening() {
       const form = new FormData()
       form.append('raw_text', rawText)
       form.append('remove_pii', JSON.stringify(items))
+      form.append('job_id', selectedJob)
       const data = await api('/api/preview/confirm', { method: 'POST', body: form })
       setReviewId(data.review_id)
       setCleanedText(data.cleaned_text)
@@ -208,6 +217,30 @@ export default function Screening() {
 
       <Alert tone={notice.error ? 'error' : 'info'}>{notice.text}</Alert>
 
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600">Screening for</p>
+            <select value={selectedJob} onChange={e => setSelectedJob(e.target.value)} className="mt-1 text-sm border border-slate-300 rounded-md px-2 py-1 bg-white min-w-[220px]">
+              <option value="">— Select Job —</option>
+              {jobs.map(j => <option key={j.id} value={j.id}>{j.title} — {j.status} {j.rubric_approved ? '(Approved 100)' : j.rubric ? '(Draft)' : '(No rubric)'}</option>)}
+            </select>
+          </div>
+          <div className="text-right">
+            {job ? (
+              <>
+                <p className="text-xs font-mono text-slate-500">Job ID {job.id.slice(0, 8)} · {job.status} · Rubric {job.rubric_approved ? 'APPROVED' : job.rubric ? 'DRAFT 100' : '—'}</p>
+                <div className="flex gap-2 justify-end mt-1">
+                  <button onClick={() => alert(job.jd_text || 'No JD')} className="link-btn text-xs">View JD</button>
+                  <button onClick={() => alert(job.rubric ? JSON.stringify(job.rubric, null, 2) : 'No rubric yet — generate Draft in HR Controls')} className="link-btn text-xs">View Rubric</button>
+                </div>
+              </>
+            ) : <p className="text-xs text-amber-600">Select an OPEN Job with approved rubric to screen.</p>}
+          </div>
+        </div>
+        {!jobReady && selectedJob && <p className="text-xs text-amber-600 mt-2">This Job is not ready — need OPEN + approved 100pt rubric. Fix in HR Controls.</p>}
+      </div>
+
       <StepBar current={step} />
 
       {/* Step 1: Upload */}
@@ -231,7 +264,7 @@ export default function Screening() {
                 <span className="text-xs text-slate-400">{picked.length ? picked.map(f => f.name).join(', ') : 'No file selected'}</span>
                 <button type="button" onClick={loadSample} className="link-btn text-xs">Load sample CV</button>
               </div>
-              <button type="submit" disabled={busy || !picked.length} className="btn-primary mt-4">
+              <button type="submit" disabled={busy || !picked.length || !jobReady} className="btn-primary mt-4" title={!jobReady ? 'Select OPEN approved Job first' : ''}>
                 {busy ? 'Scanning...' : `Scan ${picked.length > 1 ? `${picked.length} files` : 'file'}`}
               </button>
             </form>

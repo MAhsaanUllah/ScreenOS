@@ -22,7 +22,7 @@ from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
 from app.providers import CATALOG, ScoringUnavailable, complete
-from app.scorer import rubric_info, score_prepared
+from app.scorer import rubric_info, score_prepared, score_prepared_with_rubric
 
 ROOT = Path(__file__).resolve().parents[1]
 import os as _os
@@ -149,6 +149,8 @@ def _review(token: str, ctx: dict) -> dict:
 
 def _summary(review: dict) -> dict:
     card = json.loads(review["card"]) if review["card"] else None
+    # job_id from review row (job-aware) else card's job_id (legacy) — preserves snapshot
+    jid = review.get("job_id") or (card["job_id"] if card else None)
     return {
         "id": review["id"],
         "short": review["id"][:8],
@@ -157,7 +159,8 @@ def _summary(review: dict) -> dict:
         "status": review["decision"] or ("SCORED" if card else "PENDING"),
         "score": card["overall_score"] if card else None,
         "verdict": card["verdict"] if card else None,
-        "job_id": card["job_id"] if card else None,
+        "job_id": jid,
+        "job_label": jid or "Legacy",
     }
 
 
@@ -165,7 +168,7 @@ def _summary(review: dict) -> dict:
 def list_reviews(request: Request):
     ctx = auth.authorize(request)
     return [_summary(r) for r in db.rows(
-        "SELECT id, card, decision, created_at FROM reviews WHERE org_id = ? ORDER BY created_at DESC",
+        "SELECT id, card, decision, created_at, job_id FROM reviews WHERE org_id = ? ORDER BY created_at DESC",
         (ctx["org_id"],),
     )]
 
@@ -296,11 +299,30 @@ def preview(request: Request, file: UploadFile | None = File(None)):
 @app.post("/api/preview/confirm")
 def preview_confirm(request: Request, raw_text: str = Form(...),
                     name: str = Form(""), address: str = Form(""),
-                    years: str = Form(""), remove_pii: str = Form("[]")):
-    """Phase 2: apply selected PII removals and store the review."""
+                    years: str = Form(""), remove_pii: str = Form("[]"),
+                    job_id: str = Form("")):
+    """Phase 2: apply selected PII removals and store the review. If job_id provided, validates Job is OPEN and rubric approved."""
     ctx = auth.authorize(request)
     if not raw_text.strip():
         raise HTTPException(400, "Candidate text is required.")
+    # Job gate — must be OPEN and approved — check approved first so missing rubric message is clear
+    jid = (job_id or "").strip() or None
+    if jid:
+        job = db.row("SELECT id, status, rubric_json, rubric_approved FROM jobs WHERE id=? AND org_id=?", (jid, ctx["org_id"]))
+        if not job:
+            raise HTTPException(404, "Selected Job not found.")
+        if not job["rubric_approved"] or not job["rubric_json"]:
+            raise HTTPException(400, "Selected Job has no approved rubric.")
+        if job["status"] != "OPEN":
+            raise HTTPException(400, "Selected Job is not open for screening.")
+        try:
+            rj = json.loads(job["rubric_json"])
+            if sum(int(r.get("points", 0)) for r in rj) != 100:
+                raise HTTPException(400, "Selected Job rubric must total 100.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(400, "Selected Job rubric is invalid.")
     try:
         pii_items = json.loads(remove_pii) if remove_pii else []
     except (json.JSONDecodeError, TypeError):
@@ -314,7 +336,7 @@ def preview_confirm(request: Request, raw_text: str = Form(...),
         raise HTTPException(400, "Could not prepare this CV.") from None
     if len(candidate["cleaned_text"]) > 100000:
         raise HTTPException(400, "Resume text is too long; use a shorter CV.")
-    return {"review_id": reviews.store_review(ctx, candidate),
+    return {"review_id": reviews.store_review(ctx, candidate, job_id=jid),
             "cleaned_text": candidate["cleaned_text"]}
 
 
@@ -323,35 +345,52 @@ MAX_ARCHIVE = 25 * 1024 * 1024
 
 @app.post("/api/preview/batch")
 async def preview_batch(request: Request):
-    """Bulk: accepts ZIP (field `file`) OR multiple CVs (fields `file`/`files`). HR can select 50 PDFs directly."""
+    """Bulk: accepts ZIP (field `file`) OR multiple CVs (fields `file`/`files`). If job_id provided, every CV uses same approved Job rubric."""
     ctx = auth.authorize(request)
     form = await request.form()
     # Collect all uploaded files under `file` or `files`
     uploads = []
     for key in ("file", "files"):
         for item in form.getlist(key):
-            # Starlette FileUpload has .filename and async .read()
             if hasattr(item, "filename") and item.filename:
                 data = await item.read()
                 uploads.append((data, item.filename))
     if not uploads:
         raise HTTPException(400, "No files provided. Choose PDF/DOCX/TXT or a ZIP.")
+    # Job gate for bulk — same approved rubric for every CV (check approved before OPEN for clear message)
+    raw_jid = form.get("job_id", "")
+    jid = (raw_jid.strip() if isinstance(raw_jid, str) else "") or None
+    if jid:
+        job = db.row("SELECT id, status, rubric_json, rubric_approved FROM jobs WHERE id=? AND org_id=?", (jid, ctx["org_id"]))
+        if not job:
+            raise HTTPException(404, "Selected Job not found.")
+        if not job["rubric_approved"] or not job["rubric_json"]:
+            raise HTTPException(400, "Selected Job has no approved rubric.")
+        if job["status"] != "OPEN":
+            raise HTTPException(400, "Selected Job is not open for screening.")
+        try:
+            rj = json.loads(job["rubric_json"])
+            if sum(int(r.get("points", 0)) for r in rj) != 100:
+                raise HTTPException(400, "Selected Job rubric must total 100.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(400, "Selected Job rubric is invalid.")
     # Single ZIP path (existing behaviour)
     if len(uploads) == 1 and Path(uploads[0][1]).suffix.lower() == ".zip":
         data, _ = uploads[0]
         if len(data) > MAX_ARCHIVE:
             raise HTTPException(413, "Batch upload exceeds 25 MB.")
         try:
-            return batch.ingest(ctx, data)
+            return batch.ingest(ctx, data, job_id=jid)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
     # Direct bulk path (HR selects many PDFs)
     try:
-        # also enforce total size cap 25 MB for direct bulk
         total = sum(len(d) for d, _ in uploads)
         if total > MAX_ARCHIVE:
             raise ValueError("Batch upload exceeds 25 MB. ZIP or select fewer files.")
-        return batch.ingest_files(ctx, uploads)
+        return batch.ingest_files(ctx, uploads, job_id=jid)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
 
@@ -370,19 +409,43 @@ def score(token: str, request: Request, body: ScoreRequest):
         raise HTTPException(409, "This review is already scored.")
     candidate = {"candidate_hash": review["candidate_hash"], "cleaned_text": body.cleaned_text,
                  "candidate_data": wrap_candidate_data(body.cleaned_text)}
-    try:
-        rubric_path = rubrics.path_for(body.job_id)
-    except KeyError:
-        raise HTTPException(400, "Choose a job rubric that exists.") from None
     org_keys = credentials.resolve(ctx["org_id"])
     transport = (lambda messages: complete(messages, credentials=org_keys)) if org_keys else complete
-    try:
-        card = score_prepared(candidate, complete=transport, rubric_path=rubric_path, job_id=body.job_id)
-    except ScoringUnavailable as exc:
-        hint = "" if org_keys else " An admin can add a provider key in Settings."
-        raise HTTPException(503, str(exc) + hint) from None
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from None
+    # Job-aware: if review has job_id, use that job's approved rubric (no fallback)
+    jid = review.get("job_id")
+    if jid:
+        job = db.row("SELECT rubric_json, rubric_approved FROM jobs WHERE id=? AND org_id=?", (jid, ctx["org_id"]))
+        if not job or not job["rubric_approved"] or not job["rubric_json"]:
+            raise HTTPException(400, "This review's Job has no approved rubric. Approve it in HR Controls.")
+        try:
+            rj = json.loads(job["rubric_json"])
+            rubric = {r["requirement"]: float(r["points"]) for r in rj}
+            guidance = "\n".join(f"{r['requirement']} ({r['points']}pts): {r['evidence']}" for r in rj)
+            if sum(rubric.values()) != 100:
+                raise HTTPException(400, "Job rubric must total 100.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(400, "Job rubric is invalid.")
+        try:
+            card = score_prepared_with_rubric(candidate, complete=transport, rubric=rubric, rubric_guidance=guidance, job_id=jid)
+        except ScoringUnavailable as exc:
+            hint = "" if org_keys else " An admin can add a provider key in Settings."
+            raise HTTPException(503, str(exc) + hint) from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+    else:
+        try:
+            rubric_path = rubrics.path_for(body.job_id)
+        except KeyError:
+            raise HTTPException(400, "Choose a job rubric that exists.") from None
+        try:
+            card = score_prepared(candidate, complete=transport, rubric_path=rubric_path, job_id=body.job_id)
+        except ScoringUnavailable as exc:
+            hint = "" if org_keys else " An admin can add a provider key in Settings."
+            raise HTTPException(503, str(exc) + hint) from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
     payload = card.model_dump()
     db.run("UPDATE reviews SET card = ?, cleaned_text = ? WHERE id = ?",
            (json.dumps(payload, ensure_ascii=False), body.cleaned_text, token))
