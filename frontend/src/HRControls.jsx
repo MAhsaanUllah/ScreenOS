@@ -3,6 +3,9 @@ import { api } from './api.js'
 import { PageHeader, Alert, HelpTip } from './ui.jsx'
 
 export default function HRControls() {
+  // Agency vs Internal (Option C — minimal flag)
+  const [org, setOrg] = useState(null)
+  const [orgMsg, setOrgMsg] = useState('')
   // PII custom (moved from Settings — separate page per HR request)
   const [rules, setRules] = useState([])
   const [type, setType] = useState('location')
@@ -18,10 +21,16 @@ export default function HRControls() {
   const [archive, setArchive] = useState([])
 
   useEffect(() => {
+    api('/api/settings').then(setOrg).catch(() => {})
     api('/api/settings/pii').then(setRules).catch(() => {})
     api('/api/rubric').then(r => { setRubric(r); setRows(r.rows.map(x => ({ ...x }))) }).catch(() => {})
     api('/api/rubrics/archive').then(setArchive).catch(() => {})
   }, [])
+  async function setOrgType(t) {
+    setBusy(true); setOrgMsg('')
+    try { const next = await api('/api/settings/org-type', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ org_type: t }) }); setOrg(next); setOrgMsg(`Organization is now ${t}`) } catch (err) { setOrgMsg(err.message) }
+    finally { setBusy(false) }
+  }
 
   async function addRule(e) {
     e.preventDefault()
@@ -67,6 +76,18 @@ export default function HRControls() {
       <PageHeader eyebrow="HR Controls" title="One place to change filters & scores" description="Add PII words to always hide, or adjust rubric points. Settings stays clean (org/keys only) — this page is your HR toolkit." />
 
       <div className="flex flex-col gap-6">
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
+          <h2 className="panel-title">Organization Type <HelpTip text="Agency = external recruiting agency, Internal = your company. Just a label for now." /></h2>
+          {org && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">Current: <strong className="text-slate-700">{org.org_type || 'internal'}</strong></span>
+              <button onClick={() => setOrgType('internal')} disabled={busy || org.org_type === 'internal'} className="btn-ghost text-xs">Internal</button>
+              <button onClick={() => setOrgType('agency')} disabled={busy || org.org_type === 'agency'} className="btn-primary text-xs px-3 py-1">Agency</button>
+            </div>
+          )}
+          {orgMsg && <Alert tone={orgMsg.startsWith('Organization is now') ? 'success' : 'error'}>{orgMsg}</Alert>}
+          <p className="text-[11px] text-slate-400 mt-2">Ponytail: flag only — no extra agency logic until you need it. Add when workflow differs.</p>
+        </section>
         <section className="bg-white border border-slate-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="panel-title mb-0">PII Filters <HelpTip text="Add any word to always redact — e.g. location Lahore, university PU. Shows auto in Review PII." /></h2>

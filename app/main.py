@@ -495,6 +495,11 @@ class OrgRequest(BaseModel):
     name: str
 
 
+class OrgTypeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    org_type: str
+
+
 class PasswordRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     current_password: str
@@ -511,6 +516,12 @@ def settings_profile(request: Request):
 def settings_rename(request: Request, body: OrgRequest):
     ctx = auth.authorize(request)
     return orgs.rename(ctx, body.name)
+
+
+@app.post("/api/settings/org-type")
+def settings_org_type(request: Request, body: OrgTypeRequest):
+    ctx = auth.authorize(request)
+    return orgs.set_type(ctx, body.org_type)
 
 
 @app.post("/api/settings/password")
