@@ -3,17 +3,22 @@ import { api } from './api.js'
 import { PageHeader, Alert, HelpTip } from './ui.jsx'
 
 export default function HRControls() {
-  // Agency vs Internal (Option C — minimal flag)
+  // Jobs (Chunk 1) — org-scoped openings
+  const [jobs, setJobs] = useState([])
+  const [jobTitle, setJobTitle] = useState('')
+  const [jobJd, setJobJd] = useState('')
+  const [jobMsg, setJobMsg] = useState('')
+  // Agency vs Internal (minimal flag)
   const [org, setOrg] = useState(null)
   const [orgMsg, setOrgMsg] = useState('')
-  // PII custom (moved from Settings — separate page per HR request)
+  // PII custom
   const [rules, setRules] = useState([])
   const [type, setType] = useState('location')
   const [value, setValue] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Rubric points editor (single default rubric, HR-friendly)
+  // Rubric (global, will become per-job in later chunk)
   const [rubric, setRubric] = useState(null)
   const [rows, setRows] = useState([])
   const [rMsg, setRMsg] = useState('')
@@ -21,11 +26,26 @@ export default function HRControls() {
   const [archive, setArchive] = useState([])
 
   useEffect(() => {
+    api('/api/jobs').then(setJobs).catch(() => {})
     api('/api/settings').then(setOrg).catch(() => {})
     api('/api/settings/pii').then(setRules).catch(() => {})
     api('/api/rubric').then(r => { setRubric(r); setRows(r.rows.map(x => ({ ...x }))) }).catch(() => {})
     api('/api/rubrics/archive').then(setArchive).catch(() => {})
   }, [])
+  async function createJob(e) {
+    e.preventDefault()
+    setBusy(true); setJobMsg('')
+    try {
+      const j = await api('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: jobTitle, jd_text: jobJd }) })
+      setJobs(prev => [j, ...prev]); setJobTitle(''); setJobJd(''); setJobMsg('Job created — DRAFT. Add rubric then OPEN to screen.')
+    } catch (err) { setJobMsg(err.message) }
+    finally { setBusy(false) }
+  }
+  async function closeJob(id) {
+    setBusy(true)
+    try { const j = await api(`/api/jobs/${id}/close`, { method: 'POST' }); setJobs(prev => prev.map(x => x.id === id ? j : x)) } catch (err) { alert(err.message) }
+    finally { setBusy(false) }
+  }
   async function setOrgType(t) {
     setBusy(true); setOrgMsg('')
     try { const next = await api('/api/settings/org-type', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ org_type: t }) }); setOrg(next); setOrgMsg(`Organization is now ${t}`) } catch (err) { setOrgMsg(err.message) }
@@ -73,9 +93,32 @@ export default function HRControls() {
 
   return (
     <div className="max-w-[900px] mx-auto">
-      <PageHeader eyebrow="HR Controls" title="One place to change filters & scores" description="Add PII words to always hide, or adjust rubric points. Settings stays clean (org/keys only) — this page is your HR toolkit." />
+      <PageHeader eyebrow="HR Controls" title="One place to change filters & scores" description="Add Jobs, PII words to always hide, or adjust rubric points. Settings stays clean (org/keys only) — this page is your HR toolkit." />
 
       <div className="flex flex-col gap-6">
+        <section className="bg-white border border-slate-200 rounded-lg p-5">
+          <h2 className="panel-title">Job Openings <HelpTip text="Create a Job with title + JD. DRAFT → add rubric → OPEN to screen. Reviews can reference a Job (nullable for compat)." /></h2>
+          {jobMsg && <Alert tone={jobMsg.startsWith('Job created') ? 'success' : 'error'}>{jobMsg}</Alert>}
+          <form onSubmit={createJob} className="flex flex-col gap-2 mb-3">
+            <input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Job title e.g. Backend Engineer" maxLength={120} required className="input" />
+            <textarea value={jobJd} onChange={e => setJobJd(e.target.value)} placeholder="Job description (paste JD, max 8000)" maxLength={8000} rows={3} className="input resize-y" />
+            <button type="submit" disabled={busy || !jobTitle.trim()} className="btn-primary w-fit">Create Job</button>
+          </form>
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Job ID</th><th className="px-3 py-2 text-right">Action</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {jobs.length === 0 ? (
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-slate-400">No jobs yet. Create one above — existing reviews without a Job remain valid.</td></tr>
+                ) : jobs.map(j => (
+                  <tr key={j.id}><td className="px-3 py-2 text-xs font-medium text-slate-700">{j.title}</td><td className="px-3 py-2"><span className="text-[11px] px-2 py-1 rounded bg-slate-100">{j.status}</span></td><td className="px-3 py-2 font-mono text-[11px] text-slate-500">{j.id.slice(0, 8)}</td><td className="px-3 py-2 text-right">{j.status !== 'CLOSED' && <button onClick={() => closeJob(j.id)} disabled={busy} className="text-xs text-slate-500 hover:text-slate-700">Close</button>}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">Existing reviews without a Job stay readable. New reviews may reference a Job in later chunks.</p>
+        </section>
+
         <section className="bg-white border border-slate-200 rounded-lg p-5">
           <h2 className="panel-title">Organization Type <HelpTip text="Agency = external recruiting agency, Internal = your company. Just a label for now." /></h2>
           {org && (

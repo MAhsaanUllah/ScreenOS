@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app import auth, batch, compliance, credentials, db, orgs, pii_rules, reviews, rubrics, team
+from app import auth, batch, compliance, credentials, db, jobs, orgs, pii_rules, reviews, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
@@ -529,3 +529,49 @@ def settings_password(request: Request, body: PasswordRequest):
     ctx = auth.authorize(request)
     auth.change_password(ctx, body.current_password, body.new_password)
     return {"changed": True}
+
+
+# --- Jobs (Chunk 1) ---
+class JobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(min_length=1, max_length=120)
+    jd_text: str = Field(default="", max_length=8000)
+
+
+class JobUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = Field(default=None, max_length=120)
+    jd_text: str | None = Field(default=None, max_length=8000)
+    status: str | None = None
+    rubric: list[dict] | None = None
+    rubric_approved: int | None = None
+
+
+@app.get("/api/jobs")
+def jobs_list(request: Request):
+    ctx = auth.authorize(request)
+    return jobs.list_jobs(ctx["org_id"])
+
+
+@app.post("/api/jobs")
+def jobs_create(request: Request, body: JobCreate):
+    ctx = auth.authorize(request)
+    return jobs.create_job(ctx["org_id"], body.title, body.jd_text)
+
+
+@app.get("/api/jobs/{job_id}")
+def jobs_get(job_id: str, request: Request):
+    ctx = auth.authorize(request)
+    return jobs.get_job(ctx["org_id"], job_id)
+
+
+@app.put("/api/jobs/{job_id}")
+def jobs_update(job_id: str, request: Request, body: JobUpdate):
+    ctx = auth.authorize(request)
+    return jobs.update_job(ctx["org_id"], job_id, title=body.title, jd_text=body.jd_text, status=body.status, rubric=body.rubric, rubric_approved=body.rubric_approved)
+
+
+@app.post("/api/jobs/{job_id}/close")
+def jobs_close(job_id: str, request: Request):
+    ctx = auth.authorize(request)
+    return jobs.close_job(ctx["org_id"], job_id)

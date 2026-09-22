@@ -96,6 +96,20 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_attempts_key ON login_attempts(key, at);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id),
+  title TEXT NOT NULL,
+  jd_text TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  rubric_json TEXT,
+  rubric_approved INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_org ON jobs(org_id, created_at);
+-- reviews.job_id added via migration (nullable for compat)
 """
 
 
@@ -140,6 +154,35 @@ def _ensure_org_type(con, pg: bool) -> None:
         pass
 
 
+def _ensure_jobs(con, pg: bool) -> None:
+    # ponytail: add jobs table + reviews.job_id if missing (idempotent)
+    try:
+        if pg:
+            with con.cursor() as cur:
+                cur.execute("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS job_id TEXT")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_reviews_job ON reviews(job_id)")
+            con.commit()
+        else:
+            try:
+                con.execute("ALTER TABLE reviews ADD COLUMN job_id TEXT")
+                con.commit()
+            except Exception:
+                pass
+            try:
+                con.execute("CREATE INDEX IF NOT EXISTS idx_reviews_job ON reviews(job_id)")
+                con.commit()
+            except Exception:
+                pass
+            # ensure jobs table exists via SCHEMA (already CREATE IF NOT EXISTS)
+            try:
+                con.executescript("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, title TEXT NOT NULL, jd_text TEXT DEFAULT '', status TEXT DEFAULT 'DRAFT', rubric_json TEXT, rubric_approved INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_jobs_org ON jobs(org_id, created_at);")
+                con.commit()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def connect():
     if _is_pg():
         # ponytail: pool if psycopg_pool present, else per-call — add pool when VPS sees contention
@@ -162,9 +205,11 @@ def connect():
                             cur.execute(SCHEMA)
                         con.commit()
                         _ensure_org_type(con, True)
+                        _ensure_jobs(con, True)
                         _ready.add(key)
             else:
                 _ensure_org_type(con, True)
+                _ensure_jobs(con, True)
             return con
         url = os.environ["DATABASE_URL"]
         con = psycopg.connect(url, row_factory=dict_row)  # type: ignore
@@ -177,9 +222,11 @@ def connect():
                         cur.execute(SCHEMA)
                     con.commit()
                     _ensure_org_type(con, True)
+                    _ensure_jobs(con, True)
                     _ready.add(key)
         else:
             _ensure_org_type(con, True)
+            _ensure_jobs(con, True)
         return con
     path_value = path()
     Path(path_value).parent.mkdir(parents=True, exist_ok=True)
@@ -191,10 +238,12 @@ def connect():
             if path_value not in _ready:
                 con.executescript(SCHEMA)
                 _ensure_org_type(con, False)
+                _ensure_jobs(con, False)
                 _ready.add(path_value)
     else:
         # ensure existing DB gets new column (idempotent)
         _ensure_org_type(con, False)
+        _ensure_jobs(con, False)
     return con
 
 
