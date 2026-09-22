@@ -107,9 +107,43 @@ def _is_pg() -> bool:
     return url.startswith("postgres") and _HAS_PG
 
 
+_pool = None  # type: ignore
+
+def _get_pool():
+    global _pool
+    if _pool is not None:
+        return _pool
+    try:
+        from psycopg_pool import ConnectionPool  # type: ignore
+        _pool = ConnectionPool(os.environ["DATABASE_URL"], min_size=1, max_size=5, kwargs={"row_factory": dict_row})  # type: ignore
+        return _pool
+    except ImportError:
+        return None  # fallback to per-call connect
+
+
 def connect():
     if _is_pg():
-        # ponytail: one connection per call, no pool — add pool when VPS sees contention
+        # ponytail: pool if psycopg_pool present, else per-call — add pool when VPS sees contention
+        pool = _get_pool()
+        if pool:
+            con = pool.getconn()
+            # wrapper to return to pool on close
+            orig_close = con.close
+            def _close():
+                try:
+                    pool.putconn(con)
+                except Exception:
+                    orig_close()
+            con.close = _close  # type: ignore
+            key = "pg:pool:" + os.environ["DATABASE_URL"]
+            if key not in _ready:
+                with _init:
+                    if key not in _ready:
+                        with con.cursor() as cur:
+                            cur.execute(SCHEMA)
+                        con.commit()
+                        _ready.add(key)
+            return con
         url = os.environ["DATABASE_URL"]
         con = psycopg.connect(url, row_factory=dict_row)  # type: ignore
         # ensure schema exists once per process (PG CREATE IF NOT EXISTS is safe)

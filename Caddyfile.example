@@ -1,0 +1,13 @@
+# Caddy reverse proxy for SCREENOS VPS — HTTPS + HSTS auto (HSTS header already set by app)
+# Usage: caddy run --config Caddyfile (or docker: caddy:alpine)
+screenos.example.com {
+    reverse_proxy 127.0.0.1:8000
+    header {
+        # extra hardening (app already sets CSP/HSTS when x-forwarded-proto=https)
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Frame-Options "DENY"
+    }
+    log
+}
+# Local HTTP (no TLS) — app binds 0.0.0.0:8000, no HSTS
+# :8000 { reverse_proxy 127.0.0.1:8000 }
