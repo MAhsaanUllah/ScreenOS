@@ -130,7 +130,7 @@ Test extraction benchmarks:
 ## 👤 Maintainer
 
 **Muhammad Ahsaan Ullah** — Creator & Maintainer  
-🔗 [GitHub](https://github.com/MAhsaanUllah) · [Email](mailto:real.ahsaan@gmail.com)
+🔗 [GitHub](https://github.com/MAhsaanUllah) · [Email](mailto:dev.ahsaan@gmail.com)
 
 ---
 
@@ -171,3 +171,4 @@ SCREENOS/
 ├── requirements.txt        # Python dependencies
 └── README.md
 ```
+
