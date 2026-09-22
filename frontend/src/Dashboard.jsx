@@ -68,6 +68,14 @@ export default function Dashboard({ session, onNavigate }) {
         <div className="absolute -bottom-24 -left-10 w-[280px] h-[280px] bg-emerald-400 rounded-full opacity-20" style={{ filter: 'blur(70px)' }} />
         <div className="absolute top-1/4 left-1/3 w-[220px] h-[220px] bg-amber-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
         <div className="absolute -bottom-8 right-1/3 w-[200px] h-[200px] bg-brand-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
+
+        {/* Blobatar — center of banner, white */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          <div style={{ filter: 'brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.08))' }}>
+            <Blobatar name={session.org.name} size={80} animate="hover" />
+          </div>
+        </div>
+
         <div className="relative flex items-start justify-between">
           <div>
             <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
@@ -78,9 +86,8 @@ export default function Dashboard({ session, onNavigate }) {
               Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
             </p>
           </div>
-          <div className="flex items-center gap-6 shrink-0 relative z-10">
+          <div className="shrink-0 relative z-10">
             <LiveClock />
-            <div className="relative z-10 w-12 h-12 shrink-0"><Blobatar name={session.org.name} size={48} animate="hover" /></div>
           </div>
         </div>
         <div className="relative z-10 flex items-center gap-3 mt-6">
