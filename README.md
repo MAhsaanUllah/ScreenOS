@@ -1,17 +1,38 @@
-# SCREENOS — Fair & Evidence-Based Recruiter Workspace
+# SCREENOS — Open-Source AI Resume Screening Workspace
 
-SCREENOS is an AI-assisted candidate screening workspace designed for non-technical recruiters. It automates repetitive first-pass resume evaluation while enforcing strict anti-bias, anti-prompt-injection guardrails, and requiring verifiable evidence quotes from the candidate's CV.
+SCREENOS is a self-hostable AI resume screening workspace that helps HR teams evaluate multiple CVs consistently against an HR-approved job rubric, while reducing selected PII signals, requiring evidence for awarded points, and keeping final decisions human-controlled.
 
-> **Current Milestone: Day 5 handoff delivered, two-week plan underway**  
-> Ingestion, PII redaction, evidence-backed scorecards and the 10-sample evaluation suite were delivered on Day 5. Since then the workspace has grown into a multi-tenant service: organizations, roles and sessions; per-organization LLM keys (bring your own key) across seven providers; a React workspace; bulk ZIP intake; calibration analytics; and a compliance export. 58 automated tests and a CI build cover it.
+> **V1.0 Released** — Feature complete. Open-source, self-hostable, BYOK.
 
-### 📚 Official Sprint Deliverables
+### 📚 V1 Deliverables
 1. **Working System:** Reproducible local repository with 3-step setup (see below).
 2. **Evaluation Package:** [docs/evaluation_package.md](docs/evaluation_package.md) (10 test cases, baseline comparison, RCA).
 3. **Case Study:** [docs/case_study.md](docs/case_study.md) (User, bottleneck, architecture, trade-offs, HITL, roadmap).
 4. **AI Collaboration Note:** [docs/ai_collaboration.md](docs/ai_collaboration.md) (Tools used, verified results, rejected outputs, owned decisions).
 5. **Operator Runbook:** [docs/runbook.md](docs/runbook.md) (3-step setup, recruiter operation, rubric customization).
 6. **Demo Video Script:** [docs/demo_script.md](docs/demo_script.md) (Timestamped 5-minute walkthrough).
+
+---
+
+## 🚀 Quickstart — Local (3 steps) or VPS (1 command)
+
+### V1 Features
+- **Job-specific screening** — Create jobs with JDs, generate HR-approved 100-point rubrics
+- **PII-aware screening** — Auto-detect name/email/phone/year + custom filters, recruiter confirms redactions
+- **Evidence-backed scoring** — Every point requires a verbatim CV quote; MET=full, PARTIAL=½, NOT_FOUND=0
+- **Human-in-the-loop** — AI scores with evidence; human Approves/Rejects
+- **Bulk CV screening** — Upload 1–50 CVs (PDF/DOCX/TXT/ZIP), same approved job rubric for all
+- **BYOK (Bring Your Own Key)** — Per-org LLM keys (DeepSeek, Gemini, Anthropic, OpenAI, Groq, OpenRouter, Ollama local), encrypted at rest
+- **Self-hosting** — Single Docker command; SQLite default, Postgres optional
+- **Multi-tenant** — Organizations, roles (Admin/Recruiter), team management, job-specific rubrics
+
+### V1 Explicit Non-Goals
+- LinkedIn/Indeed/job-board APIs, ATS integrations, webhooks
+- Career pages, application forms, email automation, interview scheduling
+- Calendar integrations, offer management, candidate CRM, ranking engine
+- Billing/subscriptions, managed cloud, complex Candidate/Application domain
+- Advanced rubric version UI, new AI security subsystem, websocket infrastructure
+- Agency-specific workflow, dashboard redesign, speculative features
 
 ---
 
@@ -77,9 +98,12 @@ Resume Upload (PDF / DOCX / TXT)
 ## 🛡️ Core Guardrails
 
 1. **PII Redaction & Document Hash:** Removes candidate names, contact details, addresses, and graduation years before model evaluation. Generates a deterministic SHA-256 document identifier for auditing.
+1. **PII Redaction & Document Hash:** Removes candidate names, contact details, addresses, and graduation years before model evaluation. Generates a deterministic SHA-256 document identifier for auditing.
 2. **Anti-Prompt-Injection Boundary:** CV text is treated as untrusted data inside `<candidate_data>` tags and escaped against delimiter attacks.
 3. **Verbatim Evidence Requirement:** Every positive point awarded requires an exact, word-for-word quote from the resume. Scores without matching textual evidence fail validation.
 4. **Human-in-the-Loop:** The system produces evidence and suggestions; a human recruiter retains 100% final authority to Approve or Reject.
+5. **Job-Scoped Rubric** — Each job has its own approved 100-point rubric; bulk CVs in a batch use the same approved rubric.
+6. **BYOK Encryption at Rest** — Per-org LLM keys encrypted via Fernet; only last-4 shown in UI.
 
 ---
 
@@ -94,6 +118,13 @@ Test extraction benchmarks:
 ```powershell
 .\.venv\Scripts\python.exe scripts/measure_extraction.py
 ```
+
+---
+
+## 👤 Maintainer
+
+**Muhammad Ahsaan Ullah** — Creator & Maintainer  
+🔗 [GitHub](https://github.com/MAhsaanUllah) · [Email](mailto:real.ahsaan@gmail.com)
 
 ---
 

@@ -91,6 +91,15 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
               }`}
             >{item.label}</button>
           ))}
+          <div className="mt-auto pt-4 border-t border-slate-100">
+            <p className="text-[10px] text-slate-400 text-center">
+              ScreenOS v1.0 · Built by{' '}
+              <a href="https://github.com/MAhsaanUllah" target="_blank" rel="noopener noreferrer"
+                 className="underline hover:text-brand-600 transition-colors">
+                Muhammad Ahsaan Ullah
+              </a>
+            </p>
+          </div>
         </nav>
 
         <main className="flex-1 p-6 overflow-auto">
