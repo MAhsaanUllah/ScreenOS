@@ -79,7 +79,7 @@ export default function Dashboard({ session, onNavigate }) {
             </p>
           </div>
           <div className="flex items-center gap-5 shrink-0 relative z-10">
-            <BlobMascot size={120} />
+            <BlobMascot size={150} />
             <LiveClock />
           </div>
         </div>
