@@ -28,6 +28,9 @@ class WebChecks(unittest.TestCase):
     def test_preview_score_and_human_decision(self):
         client = self.client
         self.assertEqual(client.get("/").status_code, 200)
+        # Clear HttpOnly cookie from earlier register so unauth check is header-only
+        if hasattr(client, "cookies"):
+            client.cookies.clear()
         self.assertEqual(client.post("/api/preview", headers={"X-Screenos": "1"},
                                      files={"file": ("cv.txt", b"Amina Example")}).status_code, 401)
         self.assertEqual(client.post("/api/preview", headers=self.headers,

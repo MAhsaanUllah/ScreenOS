@@ -1,6 +1,7 @@
 """SQLite persistence. Single local file; swapped for Postgres when self-hosted.
 
-Reads SCREENOS_DB env override so tests use a temp database.
+Reads SCREENOS_DB / DATABASE_URL env so tests use temp DB and VPS can use Postgres.
+ponytail: Postgres path is thin — same SQL, psycopg if DATABASE_URL=postgres:// and driver present, else SQLite.
 """
 import os
 import sqlite3
@@ -12,6 +13,17 @@ DB_PATH = Path(__file__).resolve().parents[1] / "data" / "screenos.db"
 _lock = threading.Lock()
 _init = threading.Lock()
 _ready = set()
+
+# Postgres detection — stdlib first, driver later
+_DATABASE_URL = os.environ.get("DATABASE_URL") or ""
+_USE_PG = _DATABASE_URL.startswith("postgres")
+try:
+    import psycopg  # type: ignore
+    from psycopg.rows import dict_row  # type: ignore
+    _HAS_PG = True
+except ImportError:
+    psycopg = None  # type: ignore
+    _HAS_PG = False
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS orgs (
@@ -76,6 +88,13 @@ CREATE TABLE IF NOT EXISTS org_pii_rules (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pii_org ON org_pii_rules(org_id);
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id TEXT PRIMARY KEY,
+  key TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attempts_key ON login_attempts(key, at);
 """
 
 
@@ -83,7 +102,26 @@ def path() -> str:
     return os.environ.get("SCREENOS_DB") or str(DB_PATH)
 
 
-def connect() -> sqlite3.Connection:
+def _is_pg() -> bool:
+    url = os.environ.get("DATABASE_URL") or ""
+    return url.startswith("postgres") and _HAS_PG
+
+
+def connect():
+    if _is_pg():
+        # ponytail: one connection per call, no pool — add pool when VPS sees contention
+        url = os.environ["DATABASE_URL"]
+        con = psycopg.connect(url, row_factory=dict_row)  # type: ignore
+        # ensure schema exists once per process (PG CREATE IF NOT EXISTS is safe)
+        key = "pg:" + url
+        if key not in _ready:
+            with _init:
+                if key not in _ready:
+                    with con.cursor() as cur:
+                        cur.execute(SCHEMA)
+                    con.commit()
+                    _ready.add(key)
+        return con
     path_value = path()
     Path(path_value).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(path_value)
@@ -97,11 +135,21 @@ def connect() -> sqlite3.Connection:
     return con
 
 
+def _pg_sql(sql: str) -> str:
+    return sql.replace("?", "%s") if _is_pg() else sql
+
+
 def rows(sql: str, params=()) -> list[dict]:
     with _lock:
         con = connect()
         try:
-            return [dict(r) for r in con.execute(sql, params).fetchall()]
+            pg = _is_pg()
+            q = _pg_sql(sql)
+            if pg:
+                with con.cursor() as cur:
+                    cur.execute(q, params)
+                    return cur.fetchall()  # type: ignore
+            return [dict(r) for r in con.execute(q, params).fetchall()]
         finally:
             con.close()
 
@@ -115,8 +163,14 @@ def run(sql: str, params=()) -> None:
     with _lock:
         con = connect()
         try:
-            con.execute(sql, params)
-            con.commit()
+            q = _pg_sql(sql)
+            if _is_pg():
+                with con.cursor() as cur:
+                    cur.execute(q, params)
+                con.commit()
+            else:
+                con.execute(q, params)
+                con.commit()
         finally:
             con.close()
 
@@ -125,8 +179,15 @@ def runs(statements: list[tuple[str, tuple]]) -> None:
     with _lock:
         con = connect()
         try:
-            for sql, params in statements:
-                con.execute(sql, params)
-            con.commit()
+            pg = _is_pg()
+            if pg:
+                with con.cursor() as cur:
+                    for sql, params in statements:
+                        cur.execute(_pg_sql(sql), params)
+                con.commit()
+            else:
+                for sql, params in statements:
+                    con.execute(sql, params)
+                con.commit()
         finally:
             con.close()

@@ -265,6 +265,7 @@ export default function Screening() {
                 {batch.skipped.map(s => (
                   <p key={s.filename} className="text-xs text-red-600">Skipped: {s.filename}. {s.reason}</p>
                 ))}
+                <button onClick={handleUpload} disabled={busy} className="link-btn text-xs mt-2">Retry failed ({batch.skipped.length})</button>
               </div>
             )}
           </section>

@@ -94,35 +94,50 @@ class SwitchOrgRequest(BaseModel):
     org_id: str = Field(min_length=1)
 
 
+def _cookie_opts(request: Request) -> dict:
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    return {"httponly": True, "secure": secure, "samesite": "lax", "max_age": 30 * 24 * 3600, "path": "/"}
+
+
 @app.post("/api/auth/register")
-def register(body: RegisterRequest):
-    return auth.register(body.org_name, body.email, body.password)
+def register(request: Request, body: RegisterRequest):
+    data = auth.register(body.org_name, body.email, body.password)
+    resp = JSONResponse(data)
+    resp.set_cookie("screenos_session", data["token"], **_cookie_opts(request))
+    return resp
 
 
 @app.post("/api/auth/login")
 def login(request: Request, body: LoginRequest):
-    return auth.login(body.email, body.password, request.client.host if request.client else "")
+    data = auth.login(body.email, body.password, request.client.host if request.client else "")
+    resp = JSONResponse(data)
+    resp.set_cookie("screenos_session", data["token"], **_cookie_opts(request))
+    return resp
 
 
 @app.post("/api/auth/logout")
 def logout(request: Request):
     ctx = None
+    token = request.cookies.get("screenos_session") or request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     try:
         ctx = auth.authorize(request)
+        token = ctx["token"]
     except HTTPException:
-        # No valid session — still clear any token presented
-        token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-        if token:
-            auth.logout(token)
-        return {"ok": True}
-    auth.logout(ctx["token"])
-    return {"ok": True}
+        pass
+    if token:
+        auth.logout(token)
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie("screenos_session", path="/")
+    return resp
 
 
 @app.post("/api/auth/switch-org")
 def switch_org(request: Request, body: SwitchOrgRequest):
-    token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-    return auth.switch_org(token, body.org_id)
+    token = request.cookies.get("screenos_session") or request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    data = auth.switch_org(token, body.org_id)
+    resp = JSONResponse(data)
+    resp.set_cookie("screenos_session", data["token"], **_cookie_opts(request))
+    return resp
 
 
 def _review(token: str, ctx: dict) -> dict:
@@ -206,9 +221,11 @@ def compliance_report(request: Request):
 
 
 @app.get("/api/compliance.csv")
-def compliance_csv(request: Request):
+def compliance_csv(request: Request, decision: str | None = None, verdict: str | None = None,
+                   from_date: str | None = None, to_date: str | None = None):
     ctx = auth.authorize(request)
-    return Response(compliance.rows_csv(ctx), media_type="text/csv")
+    return Response(compliance.rows_csv(ctx, decision=decision, verdict=verdict,
+                                        from_date=from_date, to_date=to_date), media_type="text/csv")
 
 
 @app.post("/api/preview")

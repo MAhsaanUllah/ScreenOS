@@ -48,12 +48,21 @@ def report(ctx: dict) -> dict:
     }
 
 
-def rows_csv(ctx: dict) -> str:
-    """The per-candidate records as CSV, filed alongside the JSON summary."""
+def rows_csv(ctx: dict, *, decision: str | None = None, verdict: str | None = None,
+             from_date: str | None = None, to_date: str | None = None) -> str:
+    """The per-candidate records as CSV, with optional HR filters."""
     columns = ("candidate_hash", "score", "verdict", "decision", "screened_at", "decided_at")
+    records = report(ctx)["records"]
+    if decision:
+        records = [r for r in records if r["decision"] == decision]
+    if verdict:
+        records = [r for r in records if r["verdict"] == verdict]
+    if from_date:
+        records = [r for r in records if r["screened_at"] and r["screened_at"] >= from_date]
+    if to_date:
+        records = [r for r in records if r["screened_at"] and r["screened_at"] <= to_date]
     lines = [",".join(columns)]
-    lines += [",".join(_cell(record[column]) for column in columns)
-              for record in report(ctx)["records"]]
+    lines += [",".join(_cell(record[column]) for column in columns) for record in records]
     return "\n".join(lines) + "\n"
 
 

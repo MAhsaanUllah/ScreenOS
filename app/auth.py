@@ -27,6 +27,11 @@ _attempts: dict[str, list[float]] = {}
 
 
 def _locked_out(key: str) -> bool:
+    # Shared store for Postgres (cloud) else in-process (local) — ponytail: global lock, per-account locks if contention
+    if db._is_pg():
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=LOCKOUT_SECONDS)).isoformat()
+        rows = db.rows("SELECT at FROM login_attempts WHERE key=? AND at > ?", (key, cutoff))
+        return len(rows) >= LOCKOUT_ATTEMPTS
     now = time.monotonic()
     recent = [stamp for stamp in _attempts.get(key, []) if now - stamp < LOCKOUT_SECONDS]
     if recent:
@@ -34,6 +39,20 @@ def _locked_out(key: str) -> bool:
     else:
         _attempts.pop(key, None)
     return len(recent) >= LOCKOUT_ATTEMPTS
+
+
+def _record_attempt(key: str) -> None:
+    if db._is_pg():
+        db.run("INSERT INTO login_attempts (id, key, at) VALUES (?,?,?)", (uuid4().hex, key, datetime.now(timezone.utc).isoformat()))
+    else:
+        _attempts.setdefault(key, []).append(time.monotonic())
+
+
+def _clear_attempts(key: str) -> None:
+    if db._is_pg():
+        db.run("DELETE FROM login_attempts WHERE key=?", (key,))
+    else:
+        _attempts.pop(key, None)
 
 
 def _now() -> str:
@@ -117,9 +136,9 @@ def login(email: str, password: str, client: str = "") -> dict:
         raise HTTPException(429, "Too many failed sign-in attempts. Wait a minute and try again.")
     user = db.row("SELECT * FROM users WHERE email = ?", (email,))
     if not user or not _verify_password(password or "", user["pass_salt"], user["pass_hash"]):
-        _attempts.setdefault(key, []).append(time.monotonic())
+        _record_attempt(key)
         raise HTTPException(401, "Email or password is incorrect.")
-    _attempts.pop(key, None)
+    _clear_attempts(key)
     orgs = _orgs_for(user["id"])
     if not orgs:
         raise HTTPException(403, "This account has no organizations. Ask an admin to add you.")
@@ -167,6 +186,8 @@ def logout(token: str) -> None:
 def authorize(request: Request) -> dict:
     header = request.headers.get("authorization", "")
     token = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""
+    if not token:
+        token = request.cookies.get("screenos_session", "")  # HttpOnly cookie fallback for cloud
     if not token:
         raise HTTPException(401, "Sign in to continue.")
     session = db.row("SELECT * FROM sessions WHERE id = ? AND expires_at > ?", (token, _now()))

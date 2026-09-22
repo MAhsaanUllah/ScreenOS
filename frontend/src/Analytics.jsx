@@ -22,6 +22,8 @@ export default function Analytics() {
   const [reviews, setReviews] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [csvDecision, setCsvDecision] = useState('')
+  const [csvVerdict, setCsvVerdict] = useState('')
 
   useEffect(() => {
     api('/api/reviews').then(setReviews).catch(err => setError(err.message))
@@ -43,6 +45,26 @@ export default function Analytics() {
     } finally {
       setBusy(false)
     }
+  }
+  async function exportCsv() {
+    setBusy(true)
+    try {
+      const q = new URLSearchParams()
+      if (csvDecision) q.set('decision', csvDecision)
+      if (csvVerdict) q.set('verdict', csvVerdict)
+      const suffix = q.toString() ? `?${q}` : ''
+      const token = JSON.parse(localStorage.getItem('screenos_session') || 'null')?.token || ''
+      const res = await fetch(`/api/compliance.csv${suffix}`, { headers: { 'X-Screenos': '1', Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('CSV export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `screenos-${csvDecision || 'all'}-${csvVerdict || 'all'}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
   }
 
   const scored = reviews.filter(r => r.score !== null)
@@ -78,9 +100,18 @@ export default function Analytics() {
         title="Analytics"
         description="Live queue metrics computed from your organization's reviews."
         action={
-          <button onClick={exportCompliance} disabled={busy} className="btn-ghost">
-            {busy ? 'Preparing...' : 'Export compliance report'}
-          </button>
+          <div className="flex items-center gap-2">
+            <select value={csvDecision} onChange={e => setCsvDecision(e.target.value)} className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white">
+              <option value="">All decisions</option><option value="APPROVE">Approved</option><option value="REJECT">Rejected</option>
+            </select>
+            <select value={csvVerdict} onChange={e => setCsvVerdict(e.target.value)} className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white">
+              <option value="">All verdicts</option><option value="STRONG_MATCH">Strong</option><option value="POSSIBLE_MATCH">Possible</option><option value="WEAK_MATCH">Weak</option>
+            </select>
+            <button onClick={exportCsv} disabled={busy} className="btn-ghost">CSV</button>
+            <button onClick={exportCompliance} disabled={busy} className="btn-ghost">
+              {busy ? 'Preparing...' : 'JSON'}
+            </button>
+          </div>
         }
       />
 

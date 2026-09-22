@@ -57,6 +57,15 @@ def update_rubric(job_id: str, rows: list[dict]) -> dict:
     if total != 100:
         raise ValueError("Points must total exactly 100.")
     path = path_for(job_id)
+    # versioning: archive current file before overwrite — ponytail: flat files, git is the real history
+    try:
+        old = path.read_text(encoding="utf-8")
+        arch = RUBRIC_DIR / "archive"
+        arch.mkdir(exist_ok=True)
+        ts = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y%m%dT%H%M%S")
+        (arch / f"{job_id}_{ts}.md").write_text(old, encoding="utf-8")
+    except Exception:
+        pass
     header = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip().startswith("|"):

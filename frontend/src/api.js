@@ -13,7 +13,7 @@ export async function api(path, options = {}) {
   }
   let response
   try {
-    response = await fetch(path, { ...options, headers: h })
+    response = await fetch(path, { ...options, headers: h, credentials: 'same-origin' })
   } catch {
     throw new Error(OFFLINE)
   }
