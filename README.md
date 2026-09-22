@@ -4,6 +4,12 @@ SCREENOS is a self-hostable AI resume screening workspace that helps HR teams ev
 
 > **V1.0 Released** — Feature complete. Open-source, self-hostable, BYOK.
 
+<p align="center">
+  <img src="screenshots/screenos-dashboard.png"
+       alt="ScreenOS recruiter dashboard"
+       width="100%">
+</p>
+
 ### 📚 V1 Deliverables
 1. **Working System:** Reproducible local repository with 3-step setup (see below).
 2. **Evaluation Package:** [docs/evaluation_package.md](docs/evaluation_package.md) (10 test cases, baseline comparison, RCA).
