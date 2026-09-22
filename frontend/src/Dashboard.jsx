@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import { Blobatar } from '@blobatar/react'
-import 'blobatar/motion.css'
 
 function LiveClock() {
   const [now, setNow] = useState(new Date())
@@ -68,13 +66,6 @@ export default function Dashboard({ session, onNavigate }) {
         <div className="absolute -bottom-24 -left-10 w-[280px] h-[280px] bg-emerald-400 rounded-full opacity-20" style={{ filter: 'blur(70px)' }} />
         <div className="absolute top-1/4 left-1/3 w-[220px] h-[220px] bg-amber-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
         <div className="absolute -bottom-8 right-1/3 w-[200px] h-[200px] bg-brand-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
-
-        {/* Blobatar — center of banner, white */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <div style={{ filter: 'brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.08))' }}>
-            <Blobatar name={session.org.name} size={80} animate="hover" />
-          </div>
-        </div>
 
         <div className="relative flex items-start justify-between">
           <div>
