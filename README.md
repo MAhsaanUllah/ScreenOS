@@ -2,6 +2,15 @@
 
 SCREENOS is a self-hostable AI resume screening workspace that helps HR teams evaluate multiple CVs consistently against an HR-approved job rubric, while reducing selected PII signals, requiring evidence for awarded points, and keeping final decisions human-controlled.
 
+<p>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-blue?style=flat-square" alt="Release v1.0.0"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/.github/workflows/tests.yml"><img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/frontend/package.json"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/actions"><img src="https://img.shields.io/badge/Tests-80%20passing-brightgreen?style=flat-square" alt="Tests 80 passing"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/Dockerfile"><img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS#quickstart--local-3-steps-or-vps-1-command"><img src="https://img.shields.io/badge/Self--Hosted-yes-informational?style=flat-square" alt="Self-Hosted"></a>
+</p>
+
 > **V1.0 Released** — Feature complete. Open-source, self-hostable, BYOK.
 
 <p align="center">
