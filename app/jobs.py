@@ -130,7 +130,7 @@ def close_job(org_id: str, job_id: str) -> dict:
     return update_job(org_id, job_id, status="CLOSED")
 
 
-# --- Draft rubric generation (Chunk 2) ---
+# --- Draft rubric generation ---
 import re as _re
 
 _DRAFT_SYSTEM = """You are an HR rubric assistant. Convert a Job Description into a screening rubric.

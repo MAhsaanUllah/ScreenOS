@@ -597,7 +597,7 @@ def settings_password(request: Request, body: PasswordRequest):
     return {"changed": True}
 
 
-# --- Jobs (Chunk 1) ---
+# --- Jobs ---
 class JobCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(min_length=1, max_length=120)
@@ -643,7 +643,7 @@ def jobs_close(job_id: str, request: Request):
     return jobs.close_job(ctx["org_id"], job_id)
 
 
-# --- Job Rubric Draft/Approve (Chunk 2) ---
+# --- Job Rubric Draft/Approve ---
 @app.post("/api/jobs/{job_id}/rubric/draft")
 def jobs_rubric_draft(job_id: str, request: Request):
     ctx = auth.authorize(request)
