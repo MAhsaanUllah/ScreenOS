@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Dashboard from './Dashboard.jsx'
 import Screening from './Screening.jsx'
 import Queue from './Queue.jsx'
@@ -26,6 +26,12 @@ const NAV = [
 export default function Workspace({ session, onSwitch, onSessionChange }) {
   const [view, setView] = useState('dashboard')
   const [error, setError] = useState('')
+  const [notifs, setNotifs] = useState([])
+  useEffect(() => {
+    api('/api/notifications').then(setNotifs).catch(() => {})
+    const t = setInterval(() => api('/api/notifications').then(setNotifs).catch(() => {}), 30000)
+    return () => clearInterval(t)
+  }, [session.org.id])
 
   async function switchOrg(orgId) {
     if (orgId === session.org.id || error) return
@@ -52,6 +58,10 @@ export default function Workspace({ session, onSwitch, onSessionChange }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <button onClick={() => setView('queue')} className="relative text-slate-500 hover:text-slate-900 p-1" title="Notifications — recent decisions">
+            <span className="text-lg">🔔</span>
+            {notifs.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{notifs.length}</span>}
+          </button>
           {session.orgs.length > 1 && (
             <select
               value={session.org.id}

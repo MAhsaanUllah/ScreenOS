@@ -15,10 +15,12 @@ export default function HRControls() {
   const [rows, setRows] = useState([])
   const [rMsg, setRMsg] = useState('')
   const [rBusy, setRBusy] = useState(false)
+  const [archive, setArchive] = useState([])
 
   useEffect(() => {
     api('/api/settings/pii').then(setRules).catch(() => {})
     api('/api/rubric').then(r => { setRubric(r); setRows(r.rows.map(x => ({ ...x }))) }).catch(() => {})
+    api('/api/rubrics/archive').then(setArchive).catch(() => {})
   }, [])
 
   async function addRule(e) {
@@ -46,6 +48,16 @@ export default function HRControls() {
     try {
       const next = await api('/api/rubric', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) })
       setRubric(next); setRows(next.rows.map(x => ({ ...x }))); setRMsg('Rubric saved — total 100. New scores will use this.')
+      api('/api/rubrics/archive').then(setArchive).catch(() => {})
+    } catch (err) { setRMsg(err.message) }
+    finally { setRBusy(false) }
+  }
+  async function restoreRubric(file) {
+    setRBusy(true)
+    try {
+      const next = await api(`/api/rubrics/restore/${file}`, { method: 'POST' })
+      setRubric(next); setRows(next.rows.map(x => ({ ...x }))); setRMsg(`Restored ${file}`)
+      api('/api/rubrics/archive').then(setArchive).catch(() => {})
     } catch (err) { setRMsg(err.message) }
     finally { setRBusy(false) }
   }
@@ -114,6 +126,16 @@ export default function HRControls() {
                 <span className={`text-xs font-semibold ${total === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>Total: {total}/100 {total !== 100 && '(must be 100 to save)'}</span>
                 <button onClick={saveRubric} disabled={rBusy || total !== 100} className="btn-primary">Save rubric</button>
               </div>
+              {archive.length > 0 && (
+                <div className="mt-4 border-t border-slate-200 pt-3">
+                  <p className="text-xs font-semibold text-slate-600 mb-2">Previous versions</p>
+                  <div className="flex flex-wrap gap-2">
+                    {archive.map(a => (
+                      <button key={a.file} onClick={() => restoreRubric(a.file)} disabled={rBusy} className="text-xs border border-slate-200 rounded px-2 py-1 bg-slate-50 hover:bg-white">{a.file.replace('ai-engineer_','').replace('.md','')} — {a.points}pts</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>

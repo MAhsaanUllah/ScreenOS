@@ -87,3 +87,36 @@ def update_rubric(job_id: str, rows: list[dict]) -> dict:
     new_content = "\n".join(header + table + ([""] + footer if footer else [])) + "\n"
     path.write_text(new_content, encoding="utf-8")
     return rubric_info(path)
+
+
+def list_archive(job_id: str = DEFAULT) -> list[dict]:
+    arch = RUBRIC_DIR / "archive"
+    if not arch.is_dir():
+        return []
+    out = []
+    for p in sorted(arch.glob(f"{job_id}_*.md"), reverse=True):
+        try:
+            info = rubric_info(p)
+            out.append({"file": p.name, "job": info["job"], "points": sum(r["points"] for r in info["rows"]), "saved_at": p.stat().st_mtime})
+        except Exception:
+            out.append({"file": p.name, "job": p.name, "points": 0, "saved_at": p.stat().st_mtime})
+    return out[:20]
+
+
+def restore_archive(job_id: str, filename: str) -> dict:
+    arch = RUBRIC_DIR / "archive"
+    src = arch / filename
+    if not src.is_file() or ".." in filename or "/" in filename:
+        raise ValueError("Archive not found.")
+    if not filename.startswith(job_id + "_"):
+        raise ValueError("Archive mismatch.")
+    cur = path_for(job_id)
+    # archive current before restore
+    try:
+        old = cur.read_text(encoding="utf-8")
+        ts = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y%m%dT%H%M%S")
+        (arch / f"{job_id}_{ts}.md").write_text(old, encoding="utf-8")
+    except Exception:
+        pass
+    cur.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    return rubric_info(cur)

@@ -208,6 +208,33 @@ def rubric_list():
     return rubrics.list_rubrics()
 
 
+@app.get("/api/rubrics/archive")
+def rubric_archive(request: Request):
+    ctx = auth.authorize(request)
+    from app.team import require_admin
+    require_admin(ctx)
+    return rubrics.list_archive()
+
+
+@app.post("/api/rubrics/restore/{filename}")
+def rubric_restore(filename: str, request: Request):
+    ctx = auth.authorize(request)
+    from app.team import require_admin
+    require_admin(ctx)
+    try:
+        return rubrics.restore_archive(rubrics.DEFAULT, filename)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@app.get("/api/notifications")
+def notifications(request: Request):
+    ctx = auth.authorize(request)
+    # ponytail: no table, just recent decisions as notifications — add table when email needed
+    rows = db.rows("SELECT id, decision, created_at FROM reviews WHERE org_id=? AND decision IS NOT NULL ORDER BY decided_at DESC LIMIT 20", (ctx["org_id"],))
+    return [{"id": r["id"][:8], "decision": r["decision"], "at": r["decided_at"] or r["created_at"]} for r in rows]
+
+
 @app.get("/api/analytics")
 def analytics(request: Request):
     ctx = auth.authorize(request)
