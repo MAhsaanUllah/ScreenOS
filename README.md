@@ -12,14 +12,20 @@ Open-source, self-hostable AI resume screening workspace for evidence-backed, hu
 </p>
 
 <p align="center">
-  <img src="screenshots/screenos-dashboard.png"
-       alt="ScreenOS recruiter dashboard"
+  <img src="screenshots/screenos-cover.png"
+       alt="ScreenOS — Open-source AI resume screening workspace"
        width="100%">
 </p>
 
 ## What is ScreenOS?
 
 ScreenOS helps HR teams screen many CVs consistently without losing human control. Create a job, paste its description, generate an HR-approved 100-point rubric, then score 1–50 CVs against that same rubric with verbatim evidence from each CV.
+
+<p align="center">
+  <img src="screenshots/screenos-dashboard.png"
+       alt="ScreenOS recruiter dashboard"
+       width="100%">
+</p>
 
 ## Why ScreenOS?
 
