@@ -5,12 +5,12 @@ import BlobMascot from './BlobMascot.jsx'
 function LiveClock() {
   const [now, setNow] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
-  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-  const date = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  const date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return (
-    <div className="text-right whitespace-nowrap">
-      <div className="text-sm font-semibold text-slate-800 font-mono">{time}</div>
-      <div className="text-[11px] text-slate-400">{date}</div>
+    <div className="text-right whitespace-nowrap leading-tight">
+      <div className="text-[13px] font-semibold text-slate-700 font-mono">{time}</div>
+      <div className="text-[10px] text-slate-400 mt-0.5">{date}</div>
     </div>
   )
 }
@@ -74,25 +74,36 @@ export default function Dashboard({ session, onNavigate }) {
         <div className="absolute top-1/4 left-1/3 w-[220px] h-[220px] bg-amber-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
         <div className="absolute -bottom-8 right-1/3 w-[200px] h-[200px] bg-brand-300 rounded-full opacity-20" style={{ filter: 'blur(60px)' }} />
 
-        <div className="relative flex items-start justify-between">
-          <div>
-            <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
-            <h1 className="text-3xl font-bold tracking-tight font-display text-slate-900 mb-2">
-              {session.user.email.split('@')[0] ? `Welcome back, ${session.user.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())}` : 'Welcome back'}
-            </h1>
-            <p className="text-sm text-slate-500 max-w-xl">
-              Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
-            </p>
+        <div className="relative">
+          {/* Main row: content | mascot | clock */}
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold tracking-widest uppercase text-brand-600 mb-2">High-trust recruiter workspace</p>
+              <h1 className="text-3xl font-bold tracking-tight font-display text-slate-900 mb-2">
+                {session.user.email.split('@')[0] ? `Welcome back, ${session.user.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())}` : 'Welcome back'}
+              </h1>
+              <p className="text-sm text-slate-500 max-w-xl">
+                Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
+              </p>
+            </div>
+
+            {/* Mascot — brand focal point */}
+            <div className="shrink-0 relative z-10">
+              <BlobMascot size={150} />
+            </div>
+
+            {/* Clock — secondary utility, far right */}
+            <div className="shrink-0 relative z-10">
+              <LiveClock />
+            </div>
           </div>
-          <div className="flex items-center gap-5 shrink-0 relative z-10">
-            <BlobMascot size={150} />
-            <LiveClock />
+
+          {/* CTAs — aligned with left content */}
+          <div className="relative z-10 flex items-center gap-3 mt-6">
+            <button onClick={() => onNavigate('upload')} className="btn-primary">Start screening</button>
+            <button onClick={() => onNavigate('queue')} className="btn-ghost">View queue</button>
+            <button onClick={() => onNavigate('analytics')} className="btn-ghost">Analytics</button>
           </div>
-        </div>
-        <div className="relative z-10 flex items-center gap-3 mt-6">
-          <button onClick={() => onNavigate('upload')} className="btn-primary">Start screening</button>
-          <button onClick={() => onNavigate('queue')} className="btn-ghost">View queue</button>
-          <button onClick={() => onNavigate('analytics')} className="btn-ghost">Analytics</button>
         </div>
       </div>
 
