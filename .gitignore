@@ -21,6 +21,8 @@ data/
 .opencode/
 *.log
 .DS_Store
+frontend/pnpm-lock.yaml
+frontend/pnpm-workspace.yaml
 # never commit: discovery/contract baselines (local audit only)
 SCREENOS_CURRENT_SYSTEM_BASELINE.md
 SCREENOS_V1_PRODUCT_CONTRACT.md
