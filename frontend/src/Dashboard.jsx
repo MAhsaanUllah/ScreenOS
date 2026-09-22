@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import BlobMascot from './BlobMascot.jsx'
 
 function LiveClock() {
   const [now, setNow] = useState(new Date())
@@ -77,8 +78,9 @@ export default function Dashboard({ session, onNavigate }) {
               Evidence first. Human decision. Screen CVs against verifiable requirements with verbatim quotes.
             </p>
           </div>
-          <div className="shrink-0 relative z-10">
+          <div className="flex items-center gap-6 shrink-0 relative z-10">
             <LiveClock />
+            <BlobMascot size={90} />
           </div>
         </div>
         <div className="relative z-10 flex items-center gap-3 mt-6">
