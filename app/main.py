@@ -165,12 +165,15 @@ def _summary(review: dict) -> dict:
 
 
 @app.get("/api/reviews")
-def list_reviews(request: Request):
+def list_reviews(request: Request, job_id: str | None = None):
     ctx = auth.authorize(request)
-    return [_summary(r) for r in db.rows(
-        "SELECT id, card, decision, created_at, job_id FROM reviews WHERE org_id = ? ORDER BY created_at DESC",
-        (ctx["org_id"],),
-    )]
+    q = "SELECT id, card, decision, created_at, job_id FROM reviews WHERE org_id = ?"
+    params = [ctx["org_id"]]
+    if job_id:
+        q += " AND job_id = ?"
+        params.append(job_id)
+    q += " ORDER BY created_at DESC"
+    return [_summary(r) for r in db.rows(q, tuple(params))]
 
 
 @app.get("/api/reviews/{token}")
@@ -239,23 +242,23 @@ def notifications(request: Request):
 
 
 @app.get("/api/analytics")
-def analytics(request: Request):
+def analytics(request: Request, job_id: str | None = None):
     ctx = auth.authorize(request)
-    return for_org(ctx["org_id"])
+    return for_org(ctx["org_id"], job_id=job_id)
 
 
 @app.get("/api/compliance")
-def compliance_report(request: Request):
+def compliance_report(request: Request, job_id: str | None = None):
     ctx = auth.authorize(request)
-    return compliance.report(ctx)
+    return compliance.report(ctx, job_id=job_id)
 
 
 @app.get("/api/compliance.csv")
 def compliance_csv(request: Request, decision: str | None = None, verdict: str | None = None,
-                   from_date: str | None = None, to_date: str | None = None):
+                   from_date: str | None = None, to_date: str | None = None, job_id: str | None = None):
     ctx = auth.authorize(request)
     return Response(compliance.rows_csv(ctx, decision=decision, verdict=verdict,
-                                        from_date=from_date, to_date=to_date), media_type="text/csv")
+                                        from_date=from_date, to_date=to_date, job_id=job_id), media_type="text/csv")
 
 
 @app.post("/api/preview")

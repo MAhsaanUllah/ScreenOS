@@ -29,9 +29,11 @@ def summarize(records: list[dict]) -> dict:
             "flagged": flagged}
 
 
-def for_org(org_id: str) -> dict:
+def for_org(org_id: str, job_id: str | None = None) -> dict:
     """Calibration summary across one organization's decided reviews."""
-    return summarize(db.rows(
-        "SELECT card, decision, candidate_hash FROM reviews "
-        "WHERE org_id = ? AND card IS NOT NULL AND decision IS NOT NULL",
-        (org_id,)))
+    q = "SELECT card, decision, candidate_hash FROM reviews WHERE org_id = ? AND card IS NOT NULL AND decision IS NOT NULL"
+    params = [org_id]
+    if job_id:
+        q += " AND job_id = ?"
+        params.append(job_id)
+    return summarize(db.rows(q, tuple(params)))

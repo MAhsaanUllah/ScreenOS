@@ -20,13 +20,16 @@ function StatCard({ label, value, accent }) {
 
 export default function Analytics() {
   const [reviews, setReviews] = useState([])
+  const [jobs, setJobs] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [csvDecision, setCsvDecision] = useState('')
   const [csvVerdict, setCsvVerdict] = useState('')
+  const [jobFilter, setJobFilter] = useState('')
 
   useEffect(() => {
     api('/api/reviews').then(setReviews).catch(err => setError(err.message))
+    api('/api/jobs').then(setJobs).catch(() => {})
   }, [])
 
   async function exportCompliance() {
@@ -53,9 +56,7 @@ export default function Analytics() {
       if (csvDecision) q.set('decision', csvDecision)
       if (csvVerdict) q.set('verdict', csvVerdict)
       const suffix = q.toString() ? `?${q}` : ''
-      const token = JSON.parse(localStorage.getItem('screenos_session') || 'null')?.token || ''
-      const res = await fetch(`/api/compliance.csv${suffix}`, { headers: { 'X-Screenos': '1', Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error('CSV export failed')
+      const res = await api(`/api/compliance.csv${suffix}`)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -67,20 +68,21 @@ export default function Analytics() {
     finally { setBusy(false) }
   }
 
-  const scored = reviews.filter(r => r.score !== null)
+  const filteredReviews = reviews.filter(r => !jobFilter || r.job_id === jobFilter)
+  const scored = filteredReviews.filter(r => r.score !== null)
   const avg = scored.length ? (scored.reduce((sum, r) => sum + r.score, 0) / scored.length).toFixed(1) : '—'
   const byVerdict = v => scored.filter(r => r.verdict === v).length
-  const byStatus = s => reviews.filter(r => r.status === s).length
-  const decided = reviews.filter(r => r.decision).length
+  const byStatus = s => filteredReviews.filter(r => r.status === s).length
+  const decided = filteredReviews.filter(r => r.decision).length
   const pipeline = [
-    { label: 'Total Screened', value: reviews.length, bar: 'bg-brand-400' },
+    { label: 'Total Screened', value: filteredReviews.length, bar: 'bg-brand-400' },
     { label: 'Scored', value: scored.length, bar: 'bg-brand-500' },
     { label: 'Decided', value: decided, bar: 'bg-brand-600' },
     { label: 'Approved', value: byStatus('APPROVE'), bar: 'bg-emerald-500' },
     { label: 'Rejected', value: byStatus('REJECT'), bar: 'bg-red-500' }
   ]
 
-  const discrepancies = reviews.filter(r =>
+  const discrepancies = filteredReviews.filter(r =>
     r.decision && r.verdict && (
       (r.verdict === 'STRONG_MATCH' && r.decision === 'REJECT') ||
       (r.verdict === 'WEAK_MATCH' && r.decision === 'APPROVE')
@@ -100,7 +102,11 @@ export default function Analytics() {
         title="Analytics"
         description="Live queue metrics computed from your organization's reviews."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={jobFilter} onChange={e => setJobFilter(e.target.value)} className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white">
+              <option value="">All Jobs</option>
+              {jobs.map(j => <option key={j.id} value={j.id}>{j.title} — {j.status} {j.rubric_approved ? '(Approved 100)' : j.rubric ? '(Draft)' : '(No rubric)'}</option>)}
+            </select>
             <select value={csvDecision} onChange={e => setCsvDecision(e.target.value)} className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white">
               <option value="">All decisions</option><option value="APPROVE">Approved</option><option value="REJECT">Rejected</option>
             </select>

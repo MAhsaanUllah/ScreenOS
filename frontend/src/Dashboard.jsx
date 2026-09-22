@@ -39,6 +39,7 @@ function QuickAction({ label, description, onClick, accent }) {
 
 export default function Dashboard({ session, onNavigate }) {
   const [reviews, setReviews] = useState([])
+  const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -48,12 +49,17 @@ export default function Dashboard({ session, onNavigate }) {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    api('/api/jobs').then(setJobs).catch(() => {})
+  }, [])
+
   const total = reviews.length
   const scored = reviews.filter(r => r.score !== null)
   const avg = scored.length ? (scored.reduce((s, r) => s + r.score, 0) / scored.length).toFixed(1) : '—'
   const pending = reviews.filter(r => r.status === 'PENDING').length
   const approved = reviews.filter(r => r.decision === 'APPROVE').length
   const rejected = reviews.filter(r => r.decision === 'REJECT').length
+  const openJobs = jobs.filter(j => j.status === 'OPEN').length
   const recent = [...reviews].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5)
 
   const VERDICT_DOT = { STRONG_MATCH: 'bg-emerald-500', POSSIBLE_MATCH: 'bg-amber-500', WEAK_MATCH: 'bg-slate-300' }
@@ -134,7 +140,7 @@ export default function Dashboard({ session, onNavigate }) {
           <QuickAction label="Screen CV" description="Upload one or more CVs for evidence-based scoring" onClick={() => onNavigate('upload')} accent="bg-brand-50 text-brand-600" />
           <QuickAction label="Candidate Queue" description="View all candidates, filter by status, open scorecards" onClick={() => onNavigate('queue')} accent="bg-emerald-50 text-emerald-600" />
           <QuickAction label="Analytics" description="Team metrics, verdict breakdowns, AI vs human discrepancies" onClick={() => onNavigate('analytics')} accent="bg-amber-50 text-amber-600" />
-          <QuickAction label="Scoring Rubric" description="View and manage the evaluation criteria" onClick={() => onNavigate('rubrics')} accent="bg-slate-100 text-slate-600" />
+          <QuickAction label="Job Openings" description="Create jobs, manage rubrics, approve for screening" onClick={() => onNavigate('hrcontrols')} accent="bg-brand-50 text-brand-600" />
         </div>
       </div>
     </div>

@@ -11,11 +11,15 @@ from datetime import datetime, timezone
 from app import db
 
 
-def report(ctx: dict) -> dict:
+def report(ctx: dict, job_id: str | None = None) -> dict:
     org = db.row("SELECT id, name FROM orgs WHERE id = ?", (ctx["org_id"],)) or {}
-    rows = db.rows(
-        "SELECT candidate_hash, card, decision, decided_at, created_at FROM reviews "
-        "WHERE org_id = ? ORDER BY created_at", (ctx["org_id"],))
+    q = "SELECT candidate_hash, card, decision, decided_at, created_at FROM reviews WHERE org_id = ?"
+    params = [ctx["org_id"]]
+    if job_id:
+        q += " AND job_id = ?"
+        params.append(job_id)
+    q += " ORDER BY created_at"
+    rows = db.rows(q, tuple(params))
 
     decisions = {"APPROVE": 0, "REJECT": 0}
     verdicts = {"STRONG_MATCH": 0, "POSSIBLE_MATCH": 0, "WEAK_MATCH": 0}
@@ -49,10 +53,10 @@ def report(ctx: dict) -> dict:
 
 
 def rows_csv(ctx: dict, *, decision: str | None = None, verdict: str | None = None,
-             from_date: str | None = None, to_date: str | None = None) -> str:
+             from_date: str | None = None, to_date: str | None = None, job_id: str | None = None) -> str:
     """The per-candidate records as CSV, with optional HR filters."""
     columns = ("candidate_hash", "score", "verdict", "decision", "screened_at", "decided_at")
-    records = report(ctx)["records"]
+    records = report(ctx, job_id=job_id)["records"]
     if decision:
         records = [r for r in records if r["decision"] == decision]
     if verdict:

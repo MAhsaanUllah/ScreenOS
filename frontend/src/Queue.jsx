@@ -25,10 +25,16 @@ export default function Queue() {
   const [open, setOpen] = useState(null)
   const [detail, setDetail] = useState(null)
   const [error, setError] = useState('')
+  const [jobs, setJobs] = useState([])
+  const [jobFilter, setJobFilter] = useState('')
 
   useEffect(() => {
-    api('/api/reviews').then(setReviews).catch(err => setError(err.message))
+    api('/api/jobs').then(setJobs).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    api(`/api/reviews${jobFilter ? `?job_id=${jobFilter}` : ''}`).then(setReviews).catch(err => setError(err.message))
+  }, [jobFilter])
 
   const shown = reviews.filter(r => filter === 'ALL' || r.status === filter)
 
@@ -46,11 +52,17 @@ export default function Queue() {
   return (
     <div className="max-w-[1400px] mx-auto">
       <PageHeader eyebrow="Team Screening" title="Candidate Queue"
-        description="All candidate reviews in your organization. Candidates stay anonymous until a decision." />
+        description="All candidate reviews in your organization. Filter by Job or status." />
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
+        <select value={jobFilter} onChange={e => setJobFilter(e.target.value)} className="input w-[240px] max-w-full">
+          <option value="">All Jobs</option>
+          {jobs.map(j => (
+            <option key={j.id} value={j.id}>{j.title} — {j.status} {j.rubric_approved ? '(Approved 100)' : j.rubric ? '(Draft)' : '(No rubric)'}</option>
+          ))}
+        </select>
         {FILTERS.map(f => (
           <button
             key={f.id}
@@ -62,7 +74,7 @@ export default function Queue() {
         ))}
       </div>
 
-      {shown.length === 0 ? (
+      {reviews.length === 0 ? (
         <EmptyState title="No candidates here yet."
           description="Upload your first CV in Upload & Screening. New to this? Help & Guide shows the 4 steps in 3 minutes." />
       ) : (
@@ -72,6 +84,7 @@ export default function Queue() {
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200">
                 <th className="px-4 py-3 font-semibold">Candidate</th>
+                <th className="px-4 py-3 font-semibold">Job</th>
                 <th className="px-4 py-3 font-semibold">Score</th>
                 <th className="px-4 py-3 font-semibold">Verdict</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
@@ -83,6 +96,7 @@ export default function Queue() {
               {shown.map(r => (
                 <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                   <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.short}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{r.job_label || 'Legacy'}</td>
                   <td className="px-4 py-3 font-semibold">{r.score !== null ? <span className="font-mono">{r.score}<span className="text-slate-400">/100</span></span> : '—'}</td>
                   <td className="px-4 py-3">{r.verdict ? <VerdictBadge verdict={r.verdict} /> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-3">
