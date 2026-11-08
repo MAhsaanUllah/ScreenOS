@@ -9,8 +9,14 @@ services:
       # VPS: set your domain, e.g. SCREENOS_ALLOWED_HOSTS=your-vps-ip,example.com
       - SCREENOS_ALLOWED_HOSTS=${SCREENOS_ALLOWED_HOSTS:-}
       - SCREENOS_CRED_KEY=${SCREENOS_CRED_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       - PORT=${PORT:-8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      # Persist SQLite + encrypted BYOK key across restarts
-      - ./data:/app/data
+      # Persist SQLite + encrypted BYOK key across restarts (named volume avoids permission issues)
+      - screenos-data:/app/data
     restart: unless-stopped
+
+volumes:
+  screenos-data:

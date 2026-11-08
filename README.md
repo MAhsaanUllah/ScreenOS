@@ -76,13 +76,33 @@ Optional demo data:
 ```
 
 ### VPS / Docker — 1 command
+
+Multi-stage build compiles the React frontend (`node:20-slim`) and runs FastAPI (`python:3.11-slim`) under a dedicated non-root user (`screenos`, UID 1000).
+
 ```bash
 cp .env.example .env   # edit SCREENOS_ALLOWED_HOSTS=yourdomain.com
-# Optional: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" # → SCREENOS_CRED_KEY
+
+# 1. Generate strong BYOK encryption key for encrypted org keys at rest
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Add output to .env as SCREENOS_CRED_KEY=<key>
+
+# 2. Build and start container
 docker compose up --build -d
+
 # Open http://YOUR_VPS_IP:8000 (behind Caddy/Nginx for HTTPS → HSTS auto)
 ```
-`data/` persists SQLite + keys. `SCREENOS_CRED_KEY` encrypts BYOK at rest.
+
+#### Volume Permissions & Data Persistence
+- `docker-compose.yml` uses a named volume (`screenos-data:/app/data`) by default so SQLite and encrypted keys persist safely with non-root permissions.
+- If you switch to a host bind mount (`./data:/app/data`), ensure host permissions allow the non-root user to write:
+  ```bash
+  mkdir -p data && chown -R 1000:1000 data
+  ```
+
+#### Running with Local Ollama in Docker
+When ScreenOS runs inside Docker, `localhost:11434` refers to the container itself, not your host machine.
+- `docker-compose.yml` maps your host machine via `extra_hosts: "host.docker.internal:host-gateway"` and sets `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1`.
+- Ensure Ollama on your host listens on connections from the Docker bridge (e.g., set `OLLAMA_HOST=0.0.0.0:11434` before launching Ollama).
 
 ## Supported AI Providers
 

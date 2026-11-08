@@ -24,3 +24,21 @@ class ProviderFailoverChecks(unittest.TestCase):
             with self.assertRaisesRegex(providers.ScoringUnavailable, "preview is safe") as caught:
                 providers.complete([])
         self.assertNotIn("private", str(caught.exception))
+
+    @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "ollama"})
+    @patch.dict("app.providers.os.environ", {}, clear=True)
+    def test_ollama_uses_default_base_url(self, settings):
+        with patch("app.openai_compat.complete", return_value="{}") as mock_complete:
+            res = providers.complete([])
+            self.assertEqual(res, "{}")
+            mock_complete.assert_called_once()
+            self.assertEqual(mock_complete.call_args.kwargs["base_url"], "http://localhost:11434/v1")
+
+    @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "ollama"})
+    @patch.dict("app.providers.os.environ", {"OLLAMA_BASE_URL": "http://host.docker.internal:11434/v1"}, clear=True)
+    def test_ollama_uses_env_base_url(self, settings):
+        with patch("app.openai_compat.complete", return_value="{}") as mock_complete:
+            res = providers.complete([])
+            self.assertEqual(res, "{}")
+            mock_complete.assert_called_once()
+            self.assertEqual(mock_complete.call_args.kwargs["base_url"], "http://host.docker.internal:11434/v1")

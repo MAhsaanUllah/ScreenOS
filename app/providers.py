@@ -29,6 +29,11 @@ CATALOG = {
                "needs_key": False, "generic": True},
 }
 
+def _ollama_complete(messages: list[dict[str, str]], *, base_url: str | None = None, **kwargs) -> str:
+    url = base_url or os.environ.get("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
+    return openai_compat.complete(messages, base_url=url, label="Ollama", **kwargs)
+
+
 PROVIDERS = {
     "deepseek": deepseek.complete,
     "gemini": gemini.complete,
@@ -37,7 +42,7 @@ PROVIDERS = {
     "groq": partial(openai_compat.complete, base_url="https://api.groq.com/openai/v1", label="Groq"),
     "openrouter": partial(openai_compat.complete, base_url="https://openrouter.ai/api/v1",
                           label="OpenRouter"),
-    "ollama": partial(openai_compat.complete, base_url="http://localhost:11434/v1", label="Ollama"),
+    "ollama": _ollama_complete,
 }
 
 
@@ -84,8 +89,11 @@ def _options(name: str, entry: dict | None, settings: dict) -> dict:
     Providers outside the catalog (the owner's personal transport) keep using their own env settings.
     """
     spec = CATALOG.get(name)
+    opts = {}
     if entry:
-        return {"key": entry["api_key"], "model": entry["model"] or spec["default_model"]}
-    if spec and spec.get("generic"):
-        return {"key": settings.get(spec["env"]) or "", "model": spec["default_model"]}
-    return {}
+        opts = {"key": entry["api_key"], "model": entry["model"] or spec["default_model"]}
+    elif spec and spec.get("generic"):
+        opts = {"key": settings.get(spec["env"]) or "", "model": spec["default_model"]}
+    if name == "ollama":
+        opts["base_url"] = settings.get("OLLAMA_BASE_URL") or os.environ.get("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
+    return opts
