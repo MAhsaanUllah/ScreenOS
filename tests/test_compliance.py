@@ -48,7 +48,7 @@ class ComplianceChecks(unittest.TestCase):
 
         with patch.object(web, "complete", fake):
             self.client.post(f"/api/reviews/{token}/score", headers=headers,
-                             json={"cleaned_text": "Built Python tools."})
+                             json={})
         if decision:
             self.client.post(f"/api/reviews/{token}/decision", headers=headers,
                              json={"decision": decision})

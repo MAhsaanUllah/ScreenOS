@@ -110,7 +110,7 @@ class CredentialChecks(unittest.TestCase):
 
         with patch.dict(providers.PROVIDERS, {"deepseek": fake}):
             reply = self.client.post(f"/api/reviews/{token}/score", headers=headers,
-                                     json={"cleaned_text": "Built Python tools."})
+                                     json={})
         self.assertEqual(reply.status_code, 200, reply.text)
         self.assertEqual(seen, {"key": secret, "model": "org-model"})
 
@@ -170,3 +170,53 @@ class ByokFailoverChecks(unittest.TestCase):
         request = send.call_args.args[0]
         self.assertEqual(request.get_header("Authorization"), "Bearer org-key")
         self.assertEqual(json.loads(request.data)["model"], "org-model")
+
+
+class CredKeySecurity(unittest.TestCase):
+    def setUp(self):
+        from app import crypto
+        self.crypto = crypto
+        self.tmp = tempfile.TemporaryDirectory()
+        self._p = patch.object(crypto, "_FALLBACK_PATH", __import__("pathlib").Path(self.tmp.name) / ".cred_key")
+        self._p.start()
+        self._env = patch.dict(os.environ, {}, clear=False)
+        self._env.start()
+        os.environ.pop("SCREENOS_CRED_KEY", None)
+        os.environ.pop("SCREENOS_ALLOWED_HOSTS", None)
+        crypto.reset_key_cache()
+
+    def tearDown(self):
+        self._env.stop()
+        self._p.stop()
+        self.crypto.reset_key_cache()
+        self.tmp.cleanup()
+
+    def test_public_dev_key_cannot_decrypt(self):
+        import base64, hashlib
+        from cryptography.fernet import Fernet
+        dev = base64.urlsafe_b64encode(hashlib.sha256(b"screenos-local-dev-key-v1").digest())
+        token = Fernet(dev).encrypt(b"sk-secret-value").decode()
+        with self.assertRaises(ValueError):
+            self.crypto.decrypt_value(token)
+
+    def test_generated_key_roundtrips_and_is_private(self):
+        token = self.crypto.encrypt_value("sk-secret-value")
+        self.assertEqual(self.crypto.decrypt_value(token), "sk-secret-value")
+        if os.name != "nt":
+            self.assertEqual(self.crypto._FALLBACK_PATH.stat().st_mode & 0o777, 0o600)
+
+    def test_remote_host_requires_key(self):
+        os.environ["SCREENOS_ALLOWED_HOSTS"] = "app.example.com"
+        with self.assertRaises(RuntimeError):
+            self.crypto.check_config()
+        os.environ["SCREENOS_CRED_KEY"] = "x"
+        self.crypto.check_config()
+
+    def test_public_dev_key_file_is_replaced(self):
+        from cryptography.fernet import Fernet
+        self.crypto._FALLBACK_PATH.write_bytes(self.crypto._PUBLIC_DEV_KEY)
+        with self.assertLogs("uvicorn.error", "WARNING"):
+            token = self.crypto.encrypt_value("sk-secret-value")
+        self.assertNotEqual(self.crypto._FALLBACK_PATH.read_bytes().strip(), self.crypto._PUBLIC_DEV_KEY)
+        with self.assertRaises(Exception):
+            Fernet(self.crypto._PUBLIC_DEV_KEY).decrypt(token.encode())

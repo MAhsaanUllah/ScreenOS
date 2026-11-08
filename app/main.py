@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app import auth, batch, compliance, credentials, db, jobs, orgs, pii_rules, reviews, rubrics, team
+from app import auth, batch, compliance, credentials, crypto, db, jobs, orgs, pii_rules, reviews, rubrics, team
 from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
@@ -33,7 +33,15 @@ if not _allowed:
 # Always allow testserver for tests
 if "testserver" not in _allowed:
     _allowed.append("testserver")
+crypto.check_config()
 app = FastAPI(title="SCREENOS", docs_url=None, redoc_url=None)
+
+
+@app.exception_handler(crypto.CredentialKeyError)
+async def _bad_cred_key(request: Request, exc: crypto.CredentialKeyError):
+    return JSONResponse({"detail": str(exc)}, status_code=503)
+
+
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed)
 app.mount("/static", StaticFiles(directory=ROOT / "app/static"), name="static")
 build_assets = ROOT / "app/static/build/assets"
@@ -400,7 +408,6 @@ async def preview_batch(request: Request):
 
 class ScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    cleaned_text: str = Field(min_length=1, max_length=100000)
     job_id: str = rubrics.DEFAULT
 
 
@@ -410,8 +417,8 @@ def score(token: str, request: Request, body: ScoreRequest):
     review = _review(token, ctx)
     if review["card"]:
         raise HTTPException(409, "This review is already scored.")
-    candidate = {"candidate_hash": review["candidate_hash"], "cleaned_text": body.cleaned_text,
-                 "candidate_data": wrap_candidate_data(body.cleaned_text)}
+    candidate = {"candidate_hash": review["candidate_hash"], "cleaned_text": review["cleaned_text"],
+                 "candidate_data": wrap_candidate_data(review["cleaned_text"])}
     org_keys = credentials.resolve(ctx["org_id"])
     transport = (lambda messages: complete(messages, credentials=org_keys)) if org_keys else complete
     # Job-aware: if review has job_id, use that job's approved rubric (no fallback)
@@ -450,8 +457,7 @@ def score(token: str, request: Request, body: ScoreRequest):
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
     payload = card.model_dump()
-    db.run("UPDATE reviews SET card = ?, cleaned_text = ? WHERE id = ?",
-           (json.dumps(payload, ensure_ascii=False), body.cleaned_text, token))
+    db.run("UPDATE reviews SET card = ? WHERE id = ?", (json.dumps(payload, ensure_ascii=False), token))
     return payload
 
 
