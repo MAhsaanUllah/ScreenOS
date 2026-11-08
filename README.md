@@ -125,6 +125,10 @@ V1 does: job creation (`title` + JD), AI draft rubric (BYOK), HR edit/approve (1
 - Manual CV ingestion (PDF/DOCX/TXT/ZIP) in V1; no job-board/ATS sync.
 - Image-only scanned PDFs are rejected with guidance; OCR via `pytesseract` is optional.
 - Human review is required for every scorecard.
+- Redaction is rule-based and cannot be undone: only the redacted text is stored, so `confirm-pii` can remove more but never restore anything.
+- Bare personal domains (e.g. `ahmedraza.dev`) are not detected; LinkedIn, GitHub and `http(s)://` / `www.` links are.
+- Years are removed only from education lines. A line with ALL-CAPS `BE`/`MA`, or a capitalised `Intermediate`, counts as an education line, so its years can be removed too.
+- Batch uploads take the name from the CV text, then the file name. If neither gives one, nothing is redacted for it and HR must confirm before scoring.
 
 ## Testing
 

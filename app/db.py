@@ -160,14 +160,16 @@ def _ensure_jobs(con, pg: bool) -> None:
         if pg:
             with con.cursor() as cur:
                 cur.execute("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS job_id TEXT")
+                cur.execute("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS pii_flag TEXT")
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_reviews_job ON reviews(job_id)")
             con.commit()
         else:
-            try:
-                con.execute("ALTER TABLE reviews ADD COLUMN job_id TEXT")
-                con.commit()
-            except Exception:
-                pass
+            for col in ("job_id", "pii_flag"):
+                try:
+                    con.execute(f"ALTER TABLE reviews ADD COLUMN {col} TEXT")
+                    con.commit()
+                except Exception:
+                    pass
             try:
                 con.execute("CREATE INDEX IF NOT EXISTS idx_reviews_job ON reviews(job_id)")
                 con.commit()

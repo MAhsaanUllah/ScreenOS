@@ -44,6 +44,9 @@ export default function Screening() {
   const [detectedPii, setDetectedPii] = useState([])
   const [selectedPii, setSelectedPii] = useState(new Set())
   const [reviewId, setReviewId] = useState(null)
+  const [piiFlag, setPiiFlag] = useState(null) // set for batch reviews until HR confirms
+  const [piiName, setPiiName] = useState('')
+  const [noName, setNoName] = useState(false)
   const [cleanedText, setCleanedText] = useState('')
   const [card, setCard] = useState(null)
   const [record, setRecord] = useState(null)
@@ -94,7 +97,7 @@ export default function Screening() {
         setRawText(data.raw_text)
         setDetectedPii(data.detected_pii)
         setSelectedPii(new Set(data.detected_pii.map((_, i) => i)))
-        setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText('')
+        setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText(''); setPiiFlag(null)
         setStep(2)
         status(`Found ${data.detected_pii.length} personal detail${data.detected_pii.length === 1 ? '' : 's'}. Review and confirm what to remove.`)
       } else {
@@ -119,11 +122,22 @@ export default function Screening() {
     status('Applying redactions and preparing candidate record...')
     try {
       const items = [...selectedPii].map(i => detectedPii[i])
-      const form = new FormData()
-      form.append('raw_text', rawText)
-      form.append('remove_pii', JSON.stringify(items))
-      form.append('job_id', selectedJob)
-      const data = await api('/api/preview/confirm', { method: 'POST', body: form })
+      let data
+      if (piiFlag) {
+        // batch review: redact the stored text further, same review row
+        data = await api(`/api/reviews/${reviewId}/confirm-pii`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ remove_pii: items, name: piiName, confirm_no_name: noName })
+        })
+        setPiiFlag(null)
+      } else {
+        const form = new FormData()
+        form.append('raw_text', rawText)
+        form.append('remove_pii', JSON.stringify(items))
+        form.append('job_id', selectedJob)
+        data = await api('/api/preview/confirm', { method: 'POST', body: form })
+      }
       setReviewId(data.review_id)
       setCleanedText(data.cleaned_text)
       setStep(3)
@@ -198,14 +212,17 @@ export default function Screening() {
       setReviewId(row.review_id)
       setCleanedText(detail.cleaned_text)
       setCard(null); setRecord(null); setNotes('')
-      setStep(3)
-      status(`Loaded ${row.filename}. Review the sanitized text and score.`)
+      setPiiFlag(row.pii_flag || null); setPiiName(''); setNoName(false)
+      setStep(row.pii_flag ? 2 : 3)
+      status(row.pii_flag
+        ? `Loaded ${row.filename}. Confirm personal details before scoring.`
+        : `Loaded ${row.filename}. Review the sanitized text and score.`)
     } catch (err) {
       status(err.message, true)
     }
   }
 
-  const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year' }
+  const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year', url: 'Profile link' }
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -284,7 +301,7 @@ export default function Screening() {
                     {batch.reviews.map(r => (
                       <tr key={r.review_id}>
                         <td className="px-3 py-2 text-slate-700">{r.filename}</td>
-                        <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}</td>
+                        <td className="px-3 py-2 text-slate-500">{r.name_guess || '—'}{r.pii_flag === 'name_not_found' && <span className="block text-xs text-amber-600">Name not found, HR check</span>}</td>
                         <td className="px-3 py-2 text-right">
                           <button onClick={() => openBatchReview(r)} className="link-btn text-xs">Open review</button>
                         </td>
@@ -323,6 +340,18 @@ export default function Screening() {
               <h2 className="panel-title mb-0">Detected personal information</h2>
               <span className="text-xs text-slate-400">{selectedPii.size} of {detectedPii.length} selected</span>
             </div>
+            {piiFlag && (
+              <div className="mb-4 text-xs text-slate-600">
+                <p>Batch uploads were already redacted automatically. Anything you select here is removed in addition; removed text cannot be restored.</p>
+                {piiFlag === 'name_not_found' && (
+                  <div className="mt-2 flex items-center gap-3 flex-wrap">
+                    <input value={piiName} onChange={e => setPiiName(e.target.value)} maxLength={120} placeholder="Candidate name to remove"
+                      className="px-3 py-1.5 border border-slate-300 rounded-md text-sm" />
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={noName} onChange={e => setNoName(e.target.checked)} /> This CV has no name to remove</label>
+                  </div>
+                )}
+              </div>
+            )}
             {detectedPii.length === 0 ? (
               <p className="text-sm text-slate-500">No personal details detected. You can continue to scoring.</p>
             ) : (
@@ -356,7 +385,7 @@ export default function Screening() {
             )}
             <div className="flex items-center gap-3 mt-4">
               <button onClick={handleConfirmPii} disabled={busy} className="btn-primary">
-                {busy ? 'Processing...' : 'Remove selected and continue'}
+                {busy ? 'Processing...' : (piiFlag ? 'Confirm and continue' : 'Remove selected and continue')}
               </button>
               <button onClick={() => setStep(1)} className="btn-ghost">Back to upload</button>
             </div>
