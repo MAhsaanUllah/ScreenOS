@@ -71,9 +71,11 @@ _ADDR_LABEL_RE = re.compile(r"(?i)^\s*(?:home\s+address|address|residence)\s*:")
 _BULLETS = ("-", "\u2022", "*", "\u2013", "\u2014", "\u00b7")
 
 
-# A sentence is not an address: common sentence words or a long line rule it out.
+# A sentence is not an address: work verbs, "for"/"with", or a long line rule it out. Words that
+# also occur inside real addresses ("near the park", "Plot 4 and 5") are deliberately not listed.
 _SENTENCE_RE = re.compile(
-    r"\b(?:the|of|for|with|and|to|led|built|developed|managed|designed|worked)\b", re.IGNORECASE)
+    r"\b(?:led|built|developed|managed|designed|worked|implemented|created|maintained|for|with)\b",
+    re.IGNORECASE)
 MAX_ADDRESS_WORDS = 12
 
 

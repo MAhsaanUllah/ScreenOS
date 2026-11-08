@@ -114,7 +114,8 @@ class PakistaniPii(unittest.TestCase):
                 self.assertIn(line, clean(text, name="Jane Doe", remove_pii=detect_pii(text)))
 
     def test_sentence_words_and_long_lines_are_never_addresses(self):
-        for word in ("the", "of", "for", "with", "and", "to", "Led", "built", "Developed", "managed", "designed", "WORKED"):
+        for word in ("for", "with", "Led", "built", "Developed", "managed", "designed", "WORKED",
+                     "implemented", "created", "Maintained"):
             with self.subTest(word=word):
                 line = f"{word} House 12, Street 4, Lahore"
                 self.assertIn(line, clean(f"Jane Doe\n{line}\nBuilt tools.", name="Jane Doe"))
@@ -122,6 +123,14 @@ class PakistaniPii(unittest.TestCase):
         self.assertIn(long_line, clean(f"Jane Doe\n{long_line}\nBuilt tools.", name="Jane Doe"))
         short = "House 12, Street 4, DHA Phase 5, Lahore"
         self.assertNotIn("House 12", clean(f"Jane Doe\n{short}\nBuilt tools.", name="Jane Doe"))
+
+    def test_addresses_with_everyday_words_are_still_removed(self):
+        for line in ("House 12, near the park, Lahore", "Plot 4 and 5, Sector F-7, Islamabad",
+                     "House 7 next to the mosque, Street 3, Karachi"):
+            with self.subTest(line=line):
+                out = clean(f"Jane Doe\n{line}\nBuilt tools.", name="Jane Doe")
+                self.assertIn("[ADDRESS REMOVED]", out)
+                self.assertNotRegex(out, r"House|Plot|Sector|park|mosque")
 
     def test_experience_lines_survive_after_the_contact_block(self):
         filler = "\n".join(f"Role {i} at a company." for i in range(15))
