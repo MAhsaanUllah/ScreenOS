@@ -39,7 +39,9 @@ def _is_edu_line(line: str) -> bool:
 
 
 # --- Pakistani identity details -------------------------------------------------------------
-_CNIC_RE = re.compile(r"(?<!\d)\d{5}-?\d{7}-?\d(?!\d)")
+# Dashed CNIC (12345-1234567-1) always. A bare 13-digit number only when its line says it is an ID.
+_CNIC_RE = re.compile(r"(?<!\d)(?:\d{5}-\d{7}-\d|\d{13})(?!\d)")
+_CNIC_LABEL_RE = re.compile(r"\b(?:CNIC|NIC|ID card|National ID)\b", re.IGNORECASE)
 # "S/O Ahmed Raza" (also D/O, W/O). Case-sensitive with a capitalised name after it, so the
 # everyday "w/o" ("without") never matches. Removes from the marker to the end of the line.
 _RELATION_MARK_RE = re.compile(r"\b[SDW]/O\b[:.]?[ \t]*[A-Z][^\n]*")
@@ -54,6 +56,21 @@ _CITY_RE = re.compile(
     re.IGNORECASE)
 
 
+def _is_cnic(m: re.Match) -> bool:
+    if "-" in m.group():
+        return True
+    text = m.string
+    start = text.rfind("\n", 0, m.start()) + 1
+    end = text.find("\n", m.end())
+    return bool(_CNIC_LABEL_RE.search(text[start:len(text) if end < 0 else end]))
+
+
+# Address rules only touch contact details: the first lines of the CV or an "Address:" line.
+CONTACT_LINES = 15
+_ADDR_LABEL_RE = re.compile(r"(?i)^\s*(?:home\s+address|address|residence)\s*:")
+_BULLETS = ("-", "\u2022", "*", "\u2013", "\u2014", "\u00b7")
+
+
 def _is_address_line(line: str) -> bool:
     """House/Street/Phase/... followed by a number, plus a city, or two different such pairs."""
     kinds = {m.group(1).lower() for m in _ADDR_PART_RE.finditer(line)}
@@ -61,11 +78,24 @@ def _is_address_line(line: str) -> bool:
 
 
 def _redact_pk_lines(text: str) -> str:
-    """Always-on removal of CNIC numbers, relation lines and address lines."""
-    text = _CNIC_RE.sub("[CNIC REMOVED]", text)
+    """Always-on removal of CNIC numbers, relation lines and address lines.
+
+    Address lines are only removed in the first CONTACT_LINES non-empty lines, or when the line
+    starts with "Address:" / "Home Address:" / "Residence:". Bullet lines are never address lines.
+    """
+    text = _CNIC_RE.sub(lambda m: "[CNIC REMOVED]" if _is_cnic(m) else m.group(), text)
     text = _RELATION_LABEL_RE.sub("[RELATION REMOVED]", text)
     text = _RELATION_MARK_RE.sub("[RELATION REMOVED]", text)
-    return "\n".join("[ADDRESS REMOVED]" if _is_address_line(ln) else ln for ln in text.split("\n"))
+    out, seen = [], 0
+    for line in text.split("\n"):
+        seen += bool(line.strip())
+        if line.lstrip().startswith(_BULLETS):
+            out.append(line)
+        elif _ADDR_LABEL_RE.match(line) or (line.strip() and seen <= CONTACT_LINES and _is_address_line(line)):
+            out.append("[ADDRESS REMOVED]")
+        else:
+            out.append(line)
+    return "\n".join(out)
 
 
 def detect_pii(text: str) -> list[dict]:
@@ -93,7 +123,7 @@ def detect_pii(text: str) -> list[dict]:
         _add("url", m.group().rstrip(".,"))
 
     # CNIC (own type, so its digits are not also reported as a phone number)
-    cnics = list(_CNIC_RE.finditer(text))
+    cnics = [m for m in _CNIC_RE.finditer(text) if _is_cnic(m)]
     for m in cnics:
         _add("cnic", m.group())
 
@@ -102,6 +132,8 @@ def detect_pii(text: str) -> list[dict]:
         digits = re.sub(r"\D", "", m.group())
         if any(m.start() < c.end() and c.start() < m.end() for c in cnics):
             continue
+        if re.fullmatch(r"[1-9]\d{12,}", m.group().strip()):
+            continue  # one unbroken 13+ digit number (not starting 0 or +) is an id or a count, not a phone
         if 7 <= len(digits) <= 15 and not _YEAR_RANGE_RE.fullmatch(m.group()):
             _add("phone", m.group().strip())
 

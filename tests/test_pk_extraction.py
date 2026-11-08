@@ -39,7 +39,7 @@ class PakistaniPii(unittest.TestCase):
             self.assertNotIn(gone, out)
 
     def test_cnic_with_and_without_dashes(self):
-        for number in ("35202-1234567-1", "3520212345671", "35202-12345671"):
+        for number in ("35202-1234567-1", "3520212345671"):  # bare digits: the line says CNIC
             with self.subTest(number=number):
                 text = f"Name: X\nCNIC {number}\nBuilt services."
                 items = detect_pii(text)
@@ -47,6 +47,25 @@ class PakistaniPii(unittest.TestCase):
                 self.assertFalse([i for i in items if i["type"] == "phone"])
                 self.assertNotIn(number, clean(text, name="Zed", remove_pii=items))
                 self.assertNotIn(number, clean(text, name="Zed"))
+
+    def test_bare_digits_are_a_cnic_only_when_the_line_says_so(self):
+        for label in ("National ID: ", "NIC ", "ID card no. "):
+            with self.subTest(label=label):
+                self.assertNotIn("3520212345671", clean(f"Built services.\n{label}3520212345671\n", name="Zed"))
+        for text in ("processed 1234567890123 records", "Order ids 3520212345671 and 3520212345672 imported"):
+            with self.subTest(text=text):
+                full = f"Built services.\n{text}\nBuilt tools."
+                self.assertIn(text, clean(full, name="Zed"))
+                self.assertIn(text, clean(full, name="Zed", remove_pii=detect_pii(full)))
+                self.assertFalse([i for i in detect_pii(full) if i["type"] == "cnic"])
+        dashed = "Shipped 35202-1234567-1 as a test value."  # the dashed form is always an ID
+        self.assertNotIn("35202-1234567-1", clean(dashed, name="Zed"))
+
+    def test_real_phone_numbers_are_still_found(self):
+        for number in ("03001234567", "+92 300 1234567", "0300-1234567", "923001234567", "00923001234567"):
+            with self.subTest(number=number):
+                found = [i["value"] for i in detect_pii(f"Built services.\nPhone {number}\n") if i["type"] == "phone"]
+                self.assertEqual(found, [number])
 
     def test_relation_lines(self):
         for line in ("S/O Ahmed Raza", "D/O Raza Khan", "W/O Ali Hassan", "Father Name: Ahmed Raza",
@@ -72,6 +91,44 @@ class PakistaniPii(unittest.TestCase):
                 out = clean(f"Built services.\n{line}\nBuilt tools.", name="Zed")
                 self.assertIn("[ADDRESS REMOVED]", out)
                 self.assertNotRegex(out, r"House|Street|Plot|Sector|Block|Gulshan")
+
+    # Real experience lines that look a bit like addresses. They must survive as bullets in the
+    # contact block and as plain sentences deeper in the CV.
+    EXPERIENCE_LINES = ("Led Phase 2 of the Street View integration in Lahore for 4 months.",
+                        "Built Block 3 of the data pipeline, Road map owner, Islamabad team.",
+                        "processed 1234567890123 records")
+
+    def test_experience_lines_survive_as_bullets_in_the_contact_block(self):
+        for line in self.EXPERIENCE_LINES:
+            with self.subTest(line=line):
+                for marker in ("- ", "\u2022 "):
+                    text = f"Jane Doe\nBuilt services.\n{marker}{line}\nBuilt tools."
+                    out = clean(text, name="Jane Doe", remove_pii=detect_pii(text))
+                    self.assertIn(marker + line, out)
+
+    def test_experience_lines_survive_after_the_contact_block(self):
+        filler = "\n".join(f"Role {i} at a company." for i in range(15))
+        for line in self.EXPERIENCE_LINES:
+            with self.subTest(line=line):
+                text = f"Jane Doe\n{filler}\n{line}\nBuilt tools."
+                self.assertIn(line, clean(text, name="Jane Doe", remove_pii=detect_pii(text)))
+
+    def test_address_label_lines_are_removed_wherever_they_are(self):
+        filler = "\n".join(f"Role {i} at a company." for i in range(20))
+        for line in ("Address: Sunrise Apartments, Clifton", "Home Address: 4th floor, Mall Road",
+                     "Residence: near the old bridge"):
+            with self.subTest(line=line):
+                out = clean(f"Jane Doe\n{filler}\n{line}\nBuilt tools.", name="Jane Doe")
+                self.assertNotIn(line.split(":")[1].strip(), out)
+
+    def test_bullet_lines_are_never_addresses_even_in_the_contact_block(self):
+        text = "Jane Doe\n- House 12, Street 4, DHA Phase 5, Lahore\nBuilt tools."
+        self.assertIn("- House 12, Street 4, DHA Phase 5, Lahore", clean(text, name="Jane Doe"))
+
+    def test_address_lines_deep_in_the_cv_are_not_touched(self):
+        filler = "\n".join(f"Role {i} at a company." for i in range(20))
+        line = "House 12, Street 4, DHA Phase 5, Lahore"
+        self.assertIn(line, clean(f"Jane Doe\n{filler}\n{line}\nBuilt tools.", name="Jane Doe"))
 
     def test_ordinary_lines_survive(self):
         for line in ("Designed block storage for Karachi",
