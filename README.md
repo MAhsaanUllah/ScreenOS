@@ -91,6 +91,8 @@ docker compose up --build -d
 
 # Open http://YOUR_VPS_IP:8000 (behind Caddy/Nginx for HTTPS → HSTS auto)
 ```
+> [!NOTE]
+> `docker-compose.yml` uses optional env file loading (`required: false`, requires Docker Compose v2.24+), allowing the stack to boot even before `.env` is created.
 
 #### Volume Permissions & Data Persistence
 - `docker-compose.yml` uses a named volume (`screenos-data:/app/data`) by default so SQLite and encrypted keys persist safely with non-root permissions.

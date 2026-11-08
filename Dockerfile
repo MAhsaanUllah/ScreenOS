@@ -15,14 +15,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files and built frontend
-COPY --chown=screenos:screenos . .
-COPY --from=frontend-builder --chown=screenos:screenos /build/app/static/build /app/app/static/build
-
-# Create non-root user and persistent data dir
+# Create non-root user and persistent data dir before copying files with --chown
 RUN useradd -m -u 1000 screenos && \
     mkdir -p /app/data && \
-    chown -R screenos:screenos /app /app/data
+    chown -R screenos:screenos /app/data
+
+# Copy application files and built frontend with correct ownership
+COPY --chown=screenos:screenos . .
+COPY --from=frontend-builder --chown=screenos:screenos /build/app/static/build /app/app/static/build
 
 USER screenos
 EXPOSE 8000

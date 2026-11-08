@@ -4,7 +4,8 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       # VPS: set your domain, e.g. SCREENOS_ALLOWED_HOSTS=your-vps-ip,example.com
       - SCREENOS_ALLOWED_HOSTS=${SCREENOS_ALLOWED_HOSTS:-}
