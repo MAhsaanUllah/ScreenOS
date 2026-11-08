@@ -106,6 +106,23 @@ class PakistaniPii(unittest.TestCase):
                     out = clean(text, name="Jane Doe", remove_pii=detect_pii(text))
                     self.assertIn(marker + line, out)
 
+    def test_sentence_like_lines_survive_even_as_plain_text_on_line_two(self):
+        for line in self.EXPERIENCE_LINES[:2]:
+            with self.subTest(line=line):
+                text = f"Jane Doe\n{line}\nBuilt tools."
+                self.assertIn(line, clean(text, name="Jane Doe"))
+                self.assertIn(line, clean(text, name="Jane Doe", remove_pii=detect_pii(text)))
+
+    def test_sentence_words_and_long_lines_are_never_addresses(self):
+        for word in ("the", "of", "for", "with", "and", "to", "Led", "built", "Developed", "managed", "designed", "WORKED"):
+            with self.subTest(word=word):
+                line = f"{word} House 12, Street 4, Lahore"
+                self.assertIn(line, clean(f"Jane Doe\n{line}\nBuilt tools.", name="Jane Doe"))
+        long_line = "House 12, Street 4, DHA Phase 5, Lahore, Punjab, Pakistan, 54000, near main gate"  # 14 words
+        self.assertIn(long_line, clean(f"Jane Doe\n{long_line}\nBuilt tools.", name="Jane Doe"))
+        short = "House 12, Street 4, DHA Phase 5, Lahore"
+        self.assertNotIn("House 12", clean(f"Jane Doe\n{short}\nBuilt tools.", name="Jane Doe"))
+
     def test_experience_lines_survive_after_the_contact_block(self):
         filler = "\n".join(f"Role {i} at a company." for i in range(15))
         for line in self.EXPERIENCE_LINES:

@@ -71,8 +71,16 @@ _ADDR_LABEL_RE = re.compile(r"(?i)^\s*(?:home\s+address|address|residence)\s*:")
 _BULLETS = ("-", "\u2022", "*", "\u2013", "\u2014", "\u00b7")
 
 
+# A sentence is not an address: common sentence words or a long line rule it out.
+_SENTENCE_RE = re.compile(
+    r"\b(?:the|of|for|with|and|to|led|built|developed|managed|designed|worked)\b", re.IGNORECASE)
+MAX_ADDRESS_WORDS = 12
+
+
 def _is_address_line(line: str) -> bool:
     """House/Street/Phase/... followed by a number, plus a city, or two different such pairs."""
+    if _SENTENCE_RE.search(line) or len(line.split()) > MAX_ADDRESS_WORDS:
+        return False
     kinds = {m.group(1).lower() for m in _ADDR_PART_RE.finditer(line)}
     return bool(kinds) and (bool(_CITY_RE.search(line)) or len(kinds) >= 2)
 
