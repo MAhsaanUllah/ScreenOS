@@ -169,13 +169,14 @@ def _summary(review: dict) -> dict:
         "verdict": card["verdict"] if card else None,
         "job_id": jid,
         "job_label": jid or "Legacy",
+        "pii_flag": review.get("pii_flag"),
     }
 
 
 @app.get("/api/reviews")
 def list_reviews(request: Request, job_id: str | None = None):
     ctx = auth.authorize(request)
-    q = "SELECT id, card, decision, created_at, job_id FROM reviews WHERE org_id = ?"
+    q = "SELECT id, card, decision, created_at, job_id, pii_flag FROM reviews WHERE org_id = ?"
     params = [ctx["org_id"]]
     if job_id:
         q += " AND job_id = ?"
@@ -189,6 +190,7 @@ def review_detail(token: str, request: Request):
     ctx = auth.authorize(request)
     review = _review(token, ctx)
     return {"cleaned_text": review["cleaned_text"],
+            "pii_flag": review.get("pii_flag"),
             "card": json.loads(review["card"]) if review["card"] else None,
             "decision": review["decision"],
             "reviewer_notes": review["reviewer_notes"],
@@ -406,6 +408,43 @@ async def preview_batch(request: Request):
         raise HTTPException(400, str(exc)) from None
 
 
+class PiiItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["name", "email", "phone", "url", "year", "location", "university",
+                  "custom", "address", "other"]
+    value: str = Field(min_length=1, max_length=200)
+
+
+class ConfirmPiiRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    remove_pii: list[PiiItem] = Field(default_factory=list, max_length=200)
+    name: str = Field(default="", max_length=120)
+    confirm_no_name: bool = False
+
+
+@app.post("/api/reviews/{token}/confirm-pii")
+def confirm_pii(token: str, request: Request, body: ConfirmPiiRequest):
+    """Redact the stored text further and clear pii_flag. There is no way back to the
+    original: only already-redacted text is kept, so this can only remove more."""
+    ctx = auth.authorize(request)
+    review = _review(token, ctx)
+    if review["card"]:
+        raise HTTPException(409, "This review is already scored.")
+    items = [i.model_dump() for i in body.remove_pii]
+    if (review.get("pii_flag") == "name_not_found" and not body.name.strip()
+            and not body.confirm_no_name and not any(i["type"] == "name" for i in items)):
+        raise HTTPException(400, "Add the candidate name, or confirm that the CV has no name to remove.")
+    try:
+        candidate = prepare_candidate(review["cleaned_text"], name=body.name, remove_pii=items,
+                                      name_optional=True)
+    except ValueError:
+        raise HTTPException(400, "Could not prepare this CV.") from None
+    db.run("UPDATE reviews SET cleaned_text = ?, candidate_data = ?, pii_flag = NULL "
+           "WHERE id = ? AND org_id = ?",
+           (candidate["cleaned_text"], candidate["candidate_data"], token, ctx["org_id"]))
+    return {"review_id": token, "cleaned_text": candidate["cleaned_text"]}
+
+
 class ScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     job_id: str = rubrics.DEFAULT
@@ -415,6 +454,8 @@ class ScoreRequest(BaseModel):
 def score(token: str, request: Request, body: ScoreRequest):
     ctx = auth.authorize(request)
     review = _review(token, ctx)
+    if review.get("pii_flag"):
+        raise HTTPException(409, "Confirm personal details before scoring.")
     if review["card"]:
         raise HTTPException(409, "This review is already scored.")
     candidate = {"candidate_hash": review["candidate_hash"], "cleaned_text": review["cleaned_text"],

@@ -19,14 +19,30 @@ _EDU_YEAR_RE = re.compile(
     r"\b(?:graduat\w*|education|university|bachelor\w*|master\w*|"
     r"degree|bsc|msc|phd)\b", re.IGNORECASE
 )
+# 2-3 letter degree abbreviations stay case-sensitive so "be"/"ma" in prose never match.
+_EDU_ABBR_RE = re.compile(
+    r"(?<!\w)(?:BS|BE|MS|BA|MA|BBA|MBA|BSc|MSc|B\.Sc|FSc|ICS|Matric|Intermediate|"
+    r"(?:O/A|O|A) Levels?)(?!\w)")
 _YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+_YEAR_RANGE_RE = re.compile(r"\s*(?:19|20)\d{2}\s*[-\u2013]\s*(?:19|20)\d{2}\s*")
+_URL_RE = re.compile(
+    r"(?:https?://|www\.|(?:www\.)?(?:linkedin|github)\.com/)[^\s|,;()<>\[\]]+", re.IGNORECASE)
+# Lines that are a job title, not a person ("Senior Software Engineer").
+_TITLE_RE = re.compile(
+    r"\b(?:engineer|developer|manager|analyst|designer|intern|lead|consultant|curriculum|vitae|"
+    r"resume|architect|scientist|director|specialist|officer|executive|administrator|"
+    r"coordinator|student|graduate|full\s+stack)\b", re.IGNORECASE)
+
+
+def _is_edu_line(line: str) -> bool:
+    return bool(_EDU_YEAR_RE.search(line) or _EDU_ABBR_RE.search(line))
 
 
 def detect_pii(text: str) -> list[dict]:
     """Return a list of PII items found in *text*.
 
-    Each item is ``{"type": "email"|"phone"|"year"|"name", "value": "..."}``.
-    The list is ordered: emails, phones, years, then name (if guessed).
+    Each item is ``{"type": "email"|"url"|"phone"|"year"|"name", "value": "..."}``.
+    The list is ordered: emails, urls, phones, years, then name (if guessed).
     Duplicates are collapsed.
     """
     items: list[dict] = []
@@ -42,15 +58,19 @@ def detect_pii(text: str) -> list[dict]:
     for m in _EMAIL_RE.finditer(text):
         _add("email", m.group())
 
-    # Phone numbers (filter short/long artefacts)
+    # LinkedIn / GitHub / personal-site links (bare domains are not detected)
+    for m in _URL_RE.finditer(text):
+        _add("url", m.group().rstrip(".,"))
+
+    # Phone numbers (filter short/long artefacts and "2019 - 2023" date ranges)
     for m in _PHONE_RE.finditer(text):
         digits = re.sub(r"\D", "", m.group())
-        if 7 <= len(digits) <= 15:
+        if 7 <= len(digits) <= 15 and not _YEAR_RANGE_RE.fullmatch(m.group()):
             _add("phone", m.group().strip())
 
     # Graduation / education years
     for line in text.splitlines():
-        if _EDU_YEAR_RE.search(line):
+        if _is_edu_line(line):
             for y in _YEAR_RE.finditer(line):
                 _add("year", y.group())
 
@@ -75,6 +95,8 @@ def _guess_name(text: str) -> str | None:
     for line in text.splitlines()[:5]:
         line = line.strip()
         if not line or len(line) > 80:
+            continue
+        if _TITLE_RE.search(line):
             continue
         words = line.split()
         if 2 <= len(words) <= 6 and all(w[0:1].isupper() or w.isupper() for w in words if len(w) > 1):
@@ -111,9 +133,14 @@ def _remove_pii_items(text: str, items: list[dict]) -> str:
         elif kind == "phone":
             cleaned = re.sub(re.escape(val), "[PHONE REMOVED]", cleaned,
                              flags=re.IGNORECASE)
+        elif kind == "url":
+            cleaned = re.sub(re.escape(val), "[URL REMOVED]", cleaned,
+                             flags=re.IGNORECASE)
         elif kind == "year":
-            cleaned = re.sub(r"\b" + re.escape(val) + r"\b",
-                             "[YEAR REMOVED]", cleaned)
+            # education lines only: a job's "2019 - 2023" must survive a 2019 graduation
+            pattern = re.compile(r"\b" + re.escape(val) + r"\b")
+            cleaned = "\n".join(pattern.sub("[YEAR REMOVED]", ln) if _is_edu_line(ln) else ln
+                                for ln in cleaned.split("\n"))
     return cleaned
 
 
@@ -122,10 +149,13 @@ def _remove_pii_items(text: str, items: list[dict]) -> str:
 
 def prepare_candidate(text: str, *, name: str = "", address: str = "",
                       graduation_years: tuple[int, ...] = (),
-                      remove_pii: list[dict] | None = None) -> dict[str, str]:
+                      remove_pii: list[dict] | None = None,
+                      name_optional: bool = False) -> dict[str, str]:
     """Clean supplied identity and common labelled details before scoring.
 
     If *remove_pii* is provided, those detected items are removed first.
+    With *name_optional* a missing name is allowed: nothing is guessed or
+    redacted for it (batch and confirm-pii flag such reviews for HR).
     The caller may supply *name*, *address* and *graduation_years* as
     overrides.  Review the cleaned text before sending to an external model.
     The hash identifies this normalized document, not a verified person.
@@ -134,11 +164,11 @@ def prepare_candidate(text: str, *, name: str = "", address: str = "",
         raise ValueError("Candidate text is required.")
 
     # If name is not supplied, try to detect it
-    if name == "":
+    if name == "" and not name_optional:
         guessed = _guess_name(text)
         if guessed:
             name = guessed
-    if not name.strip():
+    if not name.strip() and not name_optional:
         raise ValueError("Candidate name is required.")
 
     normalized = " ".join(text.split())
@@ -151,7 +181,7 @@ def prepare_candidate(text: str, *, name: str = "", address: str = "",
         cleaned = text
 
     # Phase 2: explicit name removal (if not already in remove_pii)
-    if not remove_pii or not any(i["type"] == "name" for i in remove_pii):
+    if name.strip() and (not remove_pii or not any(i["type"] == "name" for i in remove_pii)):
         cleaned = re.sub(r"(?<!\w)" + re.escape(name.strip()) + r"(?!\w)",
                          "[NAME REMOVED]", cleaned, flags=re.IGNORECASE)
 
@@ -171,8 +201,7 @@ def prepare_candidate(text: str, *, name: str = "", address: str = "",
     # Phase 6: education-line year removal
     lines = []
     for line in cleaned.splitlines():
-        if re.search(r"\b(?:graduat\w*|education|university|bachelor\w*|master\w*|"
-                     r"degree|bsc|msc|phd)\b", line, re.IGNORECASE):
+        if _is_edu_line(line):
             line = re.sub(r"\b(?:19|20)\d{2}\b", "[YEAR REMOVED]", line)
         lines.append(line)
     cleaned = "\n".join(lines)
