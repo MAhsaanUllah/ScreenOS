@@ -144,7 +144,7 @@ $('score').onclick = async () => {
     const d = await api(`/api/reviews/${token}/score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cleaned_text: $('cleaned').value })
+      body: JSON.stringify({})
     });
 
     $('empty').hidden = true;

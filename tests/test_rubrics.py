@@ -71,7 +71,7 @@ class RubricSelectionChecks(unittest.TestCase):
 
         with patch.object(web, "complete", fake):
             reply = self.client.post(f"/api/reviews/{token}/score", headers=self.headers,
-                                     json={"cleaned_text": "Built Python tools.", "job_id": "python-backend"})
+                                     json={"job_id": "python-backend"})
         self.assertEqual(reply.status_code, 200, reply.text)
         self.assertEqual(seen["job_id"], "python-backend")
         self.assertEqual(reply.json()["job_id"], "python-backend")
@@ -82,5 +82,5 @@ class RubricSelectionChecks(unittest.TestCase):
     def test_unknown_rubric_is_rejected(self):
         token = self._preview()
         reply = self.client.post(f"/api/reviews/{token}/score", headers=self.headers,
-                                 json={"cleaned_text": "Built Python tools.", "job_id": "missing-role"})
+                                 json={"job_id": "missing-role"})
         self.assertEqual(reply.status_code, 400)

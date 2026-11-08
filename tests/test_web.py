@@ -52,17 +52,17 @@ class WebChecks(unittest.TestCase):
 
         def fake(messages):
             payload = json.loads(messages[1]["content"])
-            self.assertIn("Reviewed text", payload["candidate_data"])
+            self.assertIn("Built Python tools.", payload["candidate_data"])
             return json.dumps(dict(candidate_hash=payload["candidate_hash"], job_id=payload["job_id"],
                 overall_score=0, verdict="WEAK_MATCH", flagged_for_human=True, notes="Test only",
                 criteria=[dict(criterion=k, weight=v, status="NOT_FOUND", score=0, evidence_quote="")
                           for k, v in payload["rubric"].items()]))
         with patch.object(web, "complete", fake):
             result = client.post(f"/api/reviews/{token}/score", headers=self.headers,
-                                 json={"cleaned_text": "Reviewed text"})
+                                 json={})
         self.assertEqual(result.status_code, 200, result.text)
         self.assertEqual(client.post(f"/api/reviews/{token}/score", headers=self.headers,
-                                    json={"cleaned_text": "Reviewed text"}).status_code, 409)
+                                    json={}).status_code, 409)
 
         saved = client.post(decision, headers=self.headers, json={"decision": "REJECT", "notes": "Needs direct evidence"})
         self.assertEqual(saved.status_code, 200)
@@ -84,7 +84,7 @@ class WebChecks(unittest.TestCase):
         with patch.object(web, "complete", side_effect=ScoringUnavailable(
                 "Scoring is temporarily unavailable. Your CV preview is safe; try again shortly.")):
             result = client.post(f"/api/reviews/{token}/score", headers=self.headers,
-                                 json={"cleaned_text": "Built Python tools."})
+                                 json={})
         self.assertEqual(result.status_code, 503)
         self.assertIn("preview is safe", result.json()["detail"])
 
@@ -147,7 +147,7 @@ class WebChecks(unittest.TestCase):
         self.assertEqual(confirm.status_code, 200)
         # Acme's recruiter cannot read Globex reviews.
         peek = client.post(f"/api/reviews/{confirm.json()['review_id']}/score", headers=self.headers,
-                           json={"cleaned_text": "x"})
+                           json={})
         self.assertEqual(peek.status_code, 404)
 
     def test_queue_rubric_endpoints_are_tenant_scoped(self):
@@ -172,3 +172,31 @@ class WebChecks(unittest.TestCase):
         rubric = client.get("/api/rubric").json()
         self.assertEqual(rubric["job"], "AI Engineer / Automation")
         self.assertEqual(sum(r["points"] for r in rubric["rows"]), 100)
+
+class ScoreUsesStoredText(unittest.TestCase):
+    def test_raw_text_in_body_is_rejected_and_stored_text_is_scored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["SCREENOS_DB"] = os.path.join(tmp, "t.db")
+            try:
+                client = TestClient(web.app)
+                h = {"X-Screenos": "1"}
+                tok = client.post("/api/auth/register", headers=h, json={
+                    "org_name": "Org", "email": "o@test.test", "password": "password123"}).json()["token"]
+                h["Authorization"] = f"Bearer {tok}"
+                raw = client.post("/api/preview", headers=h, files={"file": ("cv.txt", b"Built Python tools.")}).json()["raw_text"]
+                rid = client.post("/api/preview/confirm", headers=h, data={"raw_text": raw, "name": "Amina Example"}).json()["review_id"]
+                seen = {}
+
+                def fake(messages):
+                    seen["data"] = json.loads(messages[1]["content"])["candidate_data"]
+                    raise web.ScoringUnavailable("stop")
+                with patch.object(web, "complete", fake):
+                    # a client-supplied raw/PII text field is refused outright...
+                    self.assertEqual(client.post(f"/api/reviews/{rid}/score", headers=h,
+                                                 json={"cleaned_text": "Amina 07700 900123"}).status_code, 422)
+                    # ...and the LLM only ever sees what is stored for the review.
+                    client.post(f"/api/reviews/{rid}/score", headers=h, json={})
+                self.assertIn("Built Python tools.", seen["data"])
+                self.assertNotIn("07700", seen["data"])
+            finally:
+                os.environ.pop("SCREENOS_DB", None)

@@ -81,8 +81,8 @@ class Chunk3Checks(unittest.TestCase):
                                "criteria":[{"criterion":list(payload["rubric"].keys())[0],"weight":100,"status":"MET","score":100,"evidence_quote":payload["candidate_data"].split("\n")[1] if len(payload["candidate_data"].split("\n"))>1 else "x"}]})
         # use actual scoring with mocked complete
         with patch("app.main.complete", side_effect=fake):
-            r1=self.client.post(f"/api/reviews/{rid1}/score", headers=h, json={"cleaned_text":c1.json()["cleaned_text"]})
-            r2=self.client.post(f"/api/reviews/{rid2}/score", headers=h, json={"cleaned_text":c2.json()["cleaned_text"]})
+            r1=self.client.post(f"/api/reviews/{rid1}/score", headers=h, json={})
+            r2=self.client.post(f"/api/reviews/{rid2}/score", headers=h, json={})
         self.assertEqual(r1.status_code,200,r1.text)
         self.assertEqual(r2.status_code,200,r2.text)
         self.assertEqual(r1.json()["criteria"][0]["criterion"],"Python")
@@ -132,7 +132,7 @@ class Chunk3Checks(unittest.TestCase):
             self.assertNotIn("a@b.com", payload["candidate_data"])
             return json.dumps({"candidate_hash":payload["candidate_hash"],"job_id":payload["job_id"],"overall_score":0,"verdict":"WEAK_MATCH","flagged_for_human":True,"notes":"x","criteria":[{"criterion":"A","weight":100,"status":"NOT_FOUND","score":0,"evidence_quote":""}]})
         with patch("app.main.complete", side_effect=fake):
-            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={"cleaned_text":conf.json()["cleaned_text"]})
+            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={})
         self.assertEqual(r.status_code,200)
     def test_evidence_still_validated(self):
         a=self._reg("EvOrg","ev@test.test")
@@ -148,7 +148,7 @@ class Chunk3Checks(unittest.TestCase):
             payload=json.loads(messages[1]["content"])
             return json.dumps({"candidate_hash":payload["candidate_hash"],"job_id":payload["job_id"],"overall_score":100,"verdict":"STRONG_MATCH","flagged_for_human":True,"notes":"x","criteria":[{"criterion":"A","weight":100,"status":"MET","score":100,"evidence_quote":"not in cleaned text"}]})
         with patch("app.main.complete", side_effect=fake_bad):
-            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={"cleaned_text":conf.json()["cleaned_text"]})
+            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={})
         self.assertEqual(r.status_code,400)
         self.assertTrue("Evidence" in r.text or "supporting quote" in r.text.lower())
     def test_human_decision_separate(self):
@@ -165,7 +165,7 @@ class Chunk3Checks(unittest.TestCase):
             p=json.loads(messages[1]["content"])
             return json.dumps({"candidate_hash":p["candidate_hash"],"job_id":p["job_id"],"overall_score":0,"verdict":"WEAK_MATCH","flagged_for_human":True,"notes":"x","criteria":[{"criterion":"A","weight":100,"status":"NOT_FOUND","score":0,"evidence_quote":""}]})
         with patch("app.main.complete", side_effect=fake):
-            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={"cleaned_text":conf.json()["cleaned_text"]})
+            r=self.client.post(f"/api/reviews/{rid}/score", headers=h, json={})
         self.assertEqual(r.status_code,200)
         # AI did not decide, human must
         lst=self.client.get("/api/reviews", headers=h).json()

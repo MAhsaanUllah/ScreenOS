@@ -144,7 +144,7 @@ export default function Screening() {
       const d = await api(`/api/reviews/${reviewId}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cleaned_text: cleanedText })
+        body: JSON.stringify({})
       })
       setCard(d)
       setStep(4)
@@ -369,10 +369,10 @@ export default function Screening() {
         <div className="grid grid-cols-[460px_1fr] gap-6 items-start max-lg:grid-cols-1">
           <section className="panel">
             <h2 className="panel-title">Sanitized candidate text</h2>
-            <p className="text-xs text-slate-400 mb-2">Review the text below. Edit if needed, then score.</p>
+            <p className="text-xs text-slate-400 mb-2">Text badalna ho to PII review step pe wapas jao.</p>
             <textarea
               value={cleanedText}
-              onChange={e => setCleanedText(e.target.value)}
+              readOnly
               rows={14}
               maxLength={100000}
               className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono text-xs leading-relaxed resize-y"

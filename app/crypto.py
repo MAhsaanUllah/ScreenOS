@@ -1,27 +1,28 @@
 """Credential encryption at rest (BYOK).
 
-AES-128 Fernet via `cryptography` — already installed via pdfminer.
-Key comes from SCREENOS_CRED_KEY env (Fernet key or any string, derived).
-Falls back to local dev key in data/.cred_key or deterministic dev key.
-Never log plaintext. Decrypt tries Fernet; on failure assumes legacy plaintext.
-ponytail: one file, stdlib fallback if cryptography missing.
+AES-128 Fernet. Key order: SCREENOS_CRED_KEY env (Fernet key or any string,
+derived) -> data/.cred_key -> a freshly generated random key saved there (0600).
+There is no built-in key: a shared default would let anyone decrypt stored keys.
+Never log plaintext.
 """
 import base64
 import hashlib
+import logging
 import os
 from pathlib import Path
 
-try:
-    from cryptography.fernet import Fernet, InvalidToken  # type: ignore
-    _HAS_FERNET = True
-except ImportError:  # pragma: no cover
-    Fernet = None  # type: ignore
-    InvalidToken = Exception  # type: ignore
-    _HAS_FERNET = False
+from cryptography.fernet import Fernet, InvalidToken
 
 ROOT = Path(__file__).resolve().parents[1]
 _FALLBACK_PATH = ROOT / "data" / ".cred_key"
 _FERNET_KEY: bytes | None = None
+# The old built-in key was public, so a key file holding it is as good as no encryption.
+_PUBLIC_DEV_KEY = base64.urlsafe_b64encode(hashlib.sha256(b"screenos-local-dev-key-v1").digest())
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver"}
+
+
+class CredentialKeyError(ValueError):
+    """Stored credential cannot be decrypted with the current key."""
 
 
 def _derive_key(raw: str) -> bytes:
@@ -38,74 +39,60 @@ def _derive_key(raw: str) -> bytes:
     return base64.urlsafe_b64encode(digest)
 
 
+def check_config() -> None:
+    """Startup guard: a non-local deployment must bring its own key."""
+    hosts = {h.strip() for h in os.environ.get("SCREENOS_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    if hosts - _LOCAL_HOSTS and not os.environ.get("SCREENOS_CRED_KEY", "").strip():
+        raise RuntimeError(
+            "SCREENOS_CRED_KEY is required when SCREENOS_ALLOWED_HOSTS includes a non-local host. "
+            'Generate one: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"')
+
+
 def _master_key() -> bytes:
     global _FERNET_KEY
     if _FERNET_KEY is not None:
         return _FERNET_KEY
+    check_config()
     env = os.environ.get("SCREENOS_CRED_KEY", "").strip()
     if env:
         _FERNET_KEY = _derive_key(env)
         return _FERNET_KEY
-    # Local dev: stable file or deterministic fallback
-    if _FALLBACK_PATH.is_file():
-        try:
-            val = _FALLBACK_PATH.read_text().strip()
-            if val:
-                _FERNET_KEY = val.encode()
-                return _FERNET_KEY
-        except OSError:
-            pass
-    # Try to create stable dev key file
-    try:
-        _FALLBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        dev_raw = base64.urlsafe_b64encode(hashlib.sha256(b"screenos-local-dev-key-v1").digest()).decode()
-        # best-effort write, ignore failure
-        try:
-            _FALLBACK_PATH.write_text(dev_raw)
-        except OSError:
-            pass
-        _FERNET_KEY = dev_raw.encode()
-        return _FERNET_KEY
-    except Exception:
+    _FALLBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if _FALLBACK_PATH.is_file() and _FALLBACK_PATH.read_bytes().strip() == _PUBLIC_DEV_KEY:
+        logging.getLogger("uvicorn.error").warning(
+            "data/.cred_key held the public dev key; replaced it with a new random key. "
+            "Provider keys saved earlier cannot be decrypted: re-enter them in Settings.")
+        _FALLBACK_PATH.unlink()
+    try:  # exclusive create: two workers racing never overwrite each other's key
+        fd = os.open(_FALLBACK_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(Fernet.generate_key())
+    except FileExistsError:
         pass
-    # Last resort deterministic (no file)
-    _FERNET_KEY = base64.urlsafe_b64encode(hashlib.sha256(b"screenos-local-dev-key-v1").digest())
+    _FERNET_KEY = _FALLBACK_PATH.read_bytes().strip()
     return _FERNET_KEY
 
 
 def encrypt_value(plaintext: str) -> str:
-    """Encrypt plaintext string; returns Fernet token or plaintext if no crypto."""
+    """Encrypt plaintext string; returns a Fernet token."""
     if not plaintext:
         return ""
-    if not _HAS_FERNET:
-        return plaintext  # local fallback; cloud must have cryptography
-    f = Fernet(_master_key())
-    return f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+    return Fernet(_master_key()).encrypt(plaintext.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_value(token: str) -> str:
-    """Decrypt Fernet token; on InvalidToken assume legacy plaintext."""
+    """Decrypt a Fernet token. Non-Fernet values are legacy plaintext; a Fernet
+    token that fails to decrypt (wrong key / corrupt) raises CredentialKeyError."""
     if not token:
         return ""
-    if not _HAS_FERNET:
-        return token
-    # Legacy plaintext heuristic: Fernet tokens start with gAAAA...
     if not token.startswith("gAAAA"):
-        # Could be legacy plaintext OR Fernet with different key derivation;
-        # try decrypt, on failure return as-is
-        try:
-            f = Fernet(_master_key())
-            return f.decrypt(token.encode("utf-8")).decode("utf-8")
-        except Exception:
-            return token
+        return token
     try:
-        f = Fernet(_master_key())
-        return f.decrypt(token.encode("utf-8")).decode("utf-8")
+        return Fernet(_master_key()).decrypt(token.encode("utf-8")).decode("utf-8")
     except InvalidToken:
-        # Wrong key or corrupted -> treat as plaintext fallback
-        return token
-    except Exception:
-        return token
+        raise CredentialKeyError(
+            "A stored provider key cannot be decrypted with the current SCREENOS_CRED_KEY. "
+            "Restore the original key or re-enter the key in Settings.") from None
 
 
 def reset_key_cache() -> None:
