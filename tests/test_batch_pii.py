@@ -44,7 +44,7 @@ class BatchPiiChecks(unittest.TestCase):
     def _batch(self, headers, filename, text, via):
         files = ({"file": ("b.zip", _zip(filename))} if via == "zip"
                  else {"file": (filename, b"x")})
-        with patch("app.batch.extract_text", return_value=text):
+        with patch("app.batch.extract_with_report", return_value=(text, 0)):
             reply = self.client.post("/api/preview/batch", headers=headers, files=files)
         self.assertEqual(reply.status_code, 200, reply.text)
         return reply.json()["reviews"][0]

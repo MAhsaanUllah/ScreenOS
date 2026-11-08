@@ -19,7 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import auth, batch, compliance, credentials, crypto, db, jobs, orgs, pii_rules, reviews, rubrics, team
 from app.calibration import for_org
-from app.extractor import extract_text
+from app.extractor import extract_with_report
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
 from app.providers import CATALOG, ScoringUnavailable, complete
 from app.scorer import read_rubric, rubric_info, score_with_rubric
@@ -288,7 +288,7 @@ def preview(request: Request, file: UploadFile | None = File(None)):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / ("resume" + suffix)
             path.write_bytes(data)
-            raw_text = extract_text(path)
+            raw_text, hidden = extract_with_report(path)
     except ValueError as exc:
         # Preserve useful extractor message (e.g. blank page vs generic unreadable)
         raise HTTPException(400, str(exc)) from None
@@ -297,6 +297,8 @@ def preview(request: Request, file: UploadFile | None = File(None)):
     if not raw_text.strip():
         raise HTTPException(400, "Could not extract text from this CV.")
     detected = detect_pii(raw_text)
+    if hidden:  # only the count goes to the client, never the dropped text
+        detected.append({"type": "hidden_text", "value": str(hidden)})
     # Append org custom rules that appear in text (so they show as removable in Review PII)
     try:
         customs = pii_rules.list_rules(ctx["org_id"])
@@ -410,8 +412,8 @@ async def preview_batch(request: Request):
 
 class PiiItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    type: Literal["name", "email", "phone", "url", "year", "location", "university",
-                  "custom", "address", "other"]
+    type: Literal["name", "email", "phone", "url", "cnic", "year", "hidden_text", "location",
+                  "university", "custom", "address", "other"]
     value: str = Field(min_length=1, max_length=200)
 
 

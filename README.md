@@ -150,6 +150,8 @@ V1 does: job creation (`title` + JD), AI draft rubric (BYOK), HR edit/approve (1
 - Redaction is rule-based and cannot be undone: only the redacted text is stored, so `confirm-pii` can remove more but never restore anything.
 - Bare personal domains (e.g. `ahmedraza.dev`) are not detected; LinkedIn, GitHub and `http(s)://` / `www.` links are.
 - Years are removed only from education lines. A line with ALL-CAPS `BE`/`MA`, or a capitalised `Intermediate`, counts as an education line, so its years can be removed too.
+- PDF text: two-column pages are read column by column unless a full-width line crosses the gap (then they are read as before). White text is dropped unless it sits on a coloured box, and so is text under 5pt, so white text over a background image is lost too. When anything is dropped, Review PII shows "Hidden text removed (possible prompt injection)" with only the character count; the dropped text is never stored or shown.
+- Pakistani details: CNIC numbers, `S/O`/`D/O`/`W/O`/`Father Name:`/`Husband Name:`/`Guardian:` lines and address lines are always removed. An address line needs House/Street/Phase/Block/Sector/Plot/Road with a number plus a major city, or two different such pairs; other address styles are not detected. A year wrapped onto its own line below a degree is not removed.
 - Batch uploads take the name from the CV text, then the file name. If neither gives one, nothing is redacted for it and HR must confirm before scoring.
 
 ## Testing
