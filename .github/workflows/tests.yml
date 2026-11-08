@@ -40,3 +40,35 @@ jobs:
       - name: Build workspace
         working-directory: frontend
         run: npm run build
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t screenos:smoke .
+      - name: Run container
+        run: docker run -d -p 8000:8000 --name screenos screenos:smoke
+      - name: Smoke test index response
+        run: |
+          success=0
+          for i in $(seq 1 30); do
+            if curl -s -f http://localhost:8000/ > response.html 2>/dev/null; then
+              if grep -q "/assets/" response.html; then
+                echo "React UI assets detected in GET / response."
+                success=1
+                break
+              fi
+            fi
+            sleep 1
+          done
+          if [ $success -ne 1 ]; then
+            echo "Smoke test failed! Response content:"
+            cat response.html 2>/dev/null || true
+            echo "Showing docker logs:"
+            docker logs screenos
+            exit 1
+          fi
+      - name: Stop container
+        if: always()
+        run: docker stop screenos || true
