@@ -59,6 +59,18 @@ class Scorecard(BaseModel):
         return self
 
 
+class EvidenceError(ValueError):
+    """Quotes missing from the CV. `criteria` holds rubric-matched names only, never model text."""
+
+    def __init__(self, criteria: list[str]):
+        super().__init__("Evidence must be an exact quote from the cleaned CV.")
+        self.criteria = criteria
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.split())
+
+
 def validate_scorecard(data: dict, *, cleaned_text: str, candidate_hash: str,
                        job_id: str, rubric: Mapping[str, float]) -> Scorecard:
     """Validate model output against trusted caller inputs, including exact quotes.
@@ -70,7 +82,10 @@ def validate_scorecard(data: dict, *, cleaned_text: str, candidate_hash: str,
         raise ValueError("Scorecard candidate or job does not match the request.")
     if {item.criterion: item.weight for item in card.criteria} != dict(rubric):
         raise ValueError("Criteria and weights must match the trusted job rubric.")
-    for item in card.criteria:
-        if item.evidence_quote and item.evidence_quote not in cleaned_text:
-            raise ValueError("Evidence must be an exact quote from the cleaned CV.")
+    # Exact words are required; only runs of whitespace (spaces, newlines) are treated as equal.
+    haystack = _squash(cleaned_text)
+    bad = [i.criterion for i in card.criteria
+           if i.evidence_quote and _squash(i.evidence_quote) not in haystack]
+    if bad:
+        raise EvidenceError(bad)
     return card

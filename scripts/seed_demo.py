@@ -18,7 +18,7 @@ from app.auth import register  # noqa: E402
 from app.extractor import extract_text  # noqa: E402
 from app.guardrails import prepare_candidate  # noqa: E402
 from app.reviews import store_review  # noqa: E402
-from app.scorer import score_prepared  # noqa: E402
+from app.scorer import read_rubric, score_with_rubric  # noqa: E402
 from scripts.evaluate_samples import SAMPLES, offline_complete  # noqa: E402
 
 ORG = "Demo Recruiting"
@@ -55,7 +55,8 @@ def main() -> None:
         path = ROOT / "samples/cvs" / filename
         person = SAMPLES[filename][2]
         candidate = prepare_candidate(extract_text(path), name=person)
-        card = score_prepared(candidate, complete=offline_complete(filename), rubric_path=RUBRIC)
+        card, _ = score_with_rubric(candidate, complete=offline_complete(filename), rubric=read_rubric(RUBRIC),
+                                    guidance=RUBRIC.read_text(encoding="utf-8"), job_id="ai-engineer")
         review_id = store_review(ctx, candidate)
         db.run("UPDATE reviews SET card = ? WHERE id = ?", (card.model_dump_json(), review_id))
         if decision:

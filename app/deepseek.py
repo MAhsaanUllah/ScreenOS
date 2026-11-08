@@ -1,5 +1,6 @@
 """DeepSeek chat-completions transport using the official direct API."""
 import json
+import logging
 import os
 from pathlib import Path
 import time
@@ -9,6 +10,7 @@ from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
 ENDPOINT = "https://api.deepseek.com/chat/completions"
+logger = logging.getLogger("uvicorn.error")
 
 
 def complete(messages: list[dict[str, str]], *, key: str | None = None,
@@ -21,8 +23,13 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
         raise ValueError("Add your DeepSeek key in Settings or as DEEPSEEK_API_KEY in .env.")
     if endpoint.rstrip("/") != ENDPOINT:
         raise ValueError("DEEPSEEK_BASE_URL must be the configured DeepSeek chat-completions endpoint.")
-    request = Request(ENDPOINT, data=json.dumps({"model": model, "messages": messages}).encode("utf-8"),
-                      headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"}, method="POST")
+    body = {"model": model, "messages": messages, "temperature": 0,
+            "response_format": {"type": "json_object"}}
+
+    def build():
+        return Request(ENDPOINT, data=json.dumps(body).encode("utf-8"),
+                       headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"}, method="POST")
+    request = build()
     for attempt in range(3):
         try:
             with urlopen(request, timeout=60) as response:
@@ -31,6 +38,11 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
         except HTTPError as exc:
             code = exc.code
             exc.close()
+            if code == 400 and "response_format" in body:
+                del body["response_format"], body["temperature"]
+                logger.warning("DeepSeek rejected temperature/json mode; retried without it")
+                request = build()
+                continue
             if code in {500, 502, 503, 504} and attempt < 2:
                 time.sleep(2 ** attempt)
                 continue

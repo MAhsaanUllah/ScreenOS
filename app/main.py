@@ -22,7 +22,7 @@ from app.calibration import for_org
 from app.extractor import extract_text
 from app.guardrails import detect_pii, prepare_candidate, wrap_candidate_data
 from app.providers import CATALOG, ScoringUnavailable, complete
-from app.scorer import rubric_info, score_prepared, score_prepared_with_rubric
+from app.scorer import read_rubric, rubric_info, score_with_rubric
 
 ROOT = Path(__file__).resolve().parents[1]
 import os as _os
@@ -479,7 +479,7 @@ def score(token: str, request: Request, body: ScoreRequest):
         except Exception:
             raise HTTPException(400, "Job rubric is invalid.")
         try:
-            card = score_prepared_with_rubric(candidate, complete=transport, rubric=rubric, rubric_guidance=guidance, job_id=jid)
+            card, attempts = score_with_rubric(candidate, complete=transport, rubric=rubric, guidance=guidance, job_id=jid)
         except ScoringUnavailable as exc:
             hint = "" if org_keys else " An admin can add a provider key in Settings."
             raise HTTPException(503, str(exc) + hint) from None
@@ -491,13 +491,16 @@ def score(token: str, request: Request, body: ScoreRequest):
         except KeyError:
             raise HTTPException(400, "Choose a job rubric that exists.") from None
         try:
-            card = score_prepared(candidate, complete=transport, rubric_path=rubric_path, job_id=body.job_id)
+            card, attempts = score_with_rubric(candidate, complete=transport, rubric=read_rubric(rubric_path),
+                                               guidance=Path(rubric_path).read_text(encoding="utf-8"),
+                                               job_id=body.job_id)
         except ScoringUnavailable as exc:
             hint = "" if org_keys else " An admin can add a provider key in Settings."
             raise HTTPException(503, str(exc) + hint) from None
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
     payload = card.model_dump()
+    payload["attempts"] = attempts  # 1 or 2; lets eval measure the retry rate
     db.run("UPDATE reviews SET card = ? WHERE id = ?", (json.dumps(payload, ensure_ascii=False), token))
     return payload
 

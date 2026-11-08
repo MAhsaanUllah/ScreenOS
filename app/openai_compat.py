@@ -6,11 +6,13 @@ an optional key and the model differ. Never log credentials, prompts or bodies.
 """
 
 import json
+import logging
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 TIMEOUT = 120
+logger = logging.getLogger("uvicorn.error")
 
 
 def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
@@ -23,9 +25,13 @@ def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = "Bearer " + key
-    request = Request(base_url.rstrip("/") + "/chat/completions",
-                      data=json.dumps({"model": model, "messages": messages}).encode("utf-8"),
-                      headers=headers, method="POST")
+    body = {"model": model, "messages": messages, "temperature": 0,
+            "response_format": {"type": "json_object"}}
+
+    def build():
+        return Request(base_url.rstrip("/") + "/chat/completions",
+                       data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    request = build()
     for attempt in range(3):
         try:
             with urlopen(request, timeout=TIMEOUT) as response:
@@ -34,6 +40,11 @@ def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
         except HTTPError as exc:
             code = exc.code
             exc.close()
+            if code == 400 and "response_format" in body:  # e.g. a provider without JSON mode
+                del body["response_format"], body["temperature"]
+                logger.warning("%s rejected temperature/json mode; retried without it", label)
+                request = build()
+                continue
             if code in {500, 502, 503, 504} and attempt < 2:
                 time.sleep(2 ** attempt)
                 continue

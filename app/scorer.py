@@ -8,7 +8,8 @@ from pydantic import ValidationError
 
 from app.extractor import extract_text
 from app.guardrails import prepare_candidate
-from app.schemas import Scorecard, validate_scorecard
+from app.providers import ScoringUnavailable
+from app.schemas import EvidenceError, Scorecard, validate_scorecard
 
 
 SYSTEM_INSTRUCTIONS = """You assist a recruiter; never make a hiring decision.
@@ -75,60 +76,43 @@ def score_candidate(file_path: str | Path, *, name: str,
     """
     candidate = prepare_candidate(extract_text(file_path), name=name,
                                   address=address, graduation_years=graduation_years)
-    return score_prepared(candidate, complete=complete, rubric_path=rubric_path, job_id=job_id)
+    return score_with_rubric(candidate, complete=complete, rubric=read_rubric(rubric_path),
+                             guidance=Path(rubric_path).read_text(encoding="utf-8"),
+                             job_id=job_id)[0]
 
 
-def score_prepared_with_rubric(candidate: dict[str, str], *, complete: Callable[[list[dict[str, str]]], str],
-                                 rubric: dict[str, float], rubric_guidance: str, job_id: str) -> Scorecard:
-    """Job-aware scorer: uses rubric dict directly (from jobs.rubric_json), preserves same validation."""
-    payload = dict(candidate_hash=candidate["candidate_hash"], job_id=job_id,
-                   rubric=rubric, rubric_guidance=rubric_guidance,
-                   candidate_data=candidate["candidate_data"],
-                   schema=Scorecard.model_json_schema())
-    messages = [{"role": "system", "content": SYSTEM_INSTRUCTIONS},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
-    raw = complete(messages)
+_INVALID_JSON = "Scoring service returned invalid JSON; no score was accepted."
+# Fixed wording only: model output and CV text never go into an error or a retry message.
+_EVIDENCE_REASONS = {
+    "Scorecard candidate or job does not match the request.": "The response used the wrong candidate or job ID.",
+    "Criteria and weights must match the trusted job rubric.": "The response changed the job requirements or their weights.",
+}
+
+
+class _Rejected(ValueError):
+    """A model reply we refuse. str() is the user-facing error; `feedback` is for the retry."""
+
+    def __init__(self, message: str, feedback: str):
+        super().__init__(message)
+        self.feedback = feedback
+
+
+def _extract_json(raw) -> dict:
+    # shortcut: first "{" to last "}"; prose that itself contains braces fails and retries.
+    start, end = (raw.find("{"), raw.rfind("}")) if isinstance(raw, str) else (-1, -1)
+    if start < 0 or end < start:
+        raise ValueError(_INVALID_JSON)
     try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, TypeError) as exc:
-        raise ValueError("Scoring service returned invalid JSON; no score was accepted.") from exc
+        return json.loads(raw[start:end + 1])
+    except json.JSONDecodeError:
+        raise ValueError(_INVALID_JSON) from None
+
+
+def _check(raw, candidate: dict, rubric: dict, job_id: str) -> Scorecard:
     try:
-        return validate_scorecard(data, cleaned_text=candidate["cleaned_text"],
-                                   candidate_hash=candidate["candidate_hash"],
-                                   job_id=job_id, rubric=rubric)
-    except ValidationError as exc:
-        safe_fields = set(Scorecard.model_fields) | {"criterion", "weight", "status", "score", "evidence_quote"}
-        reasons = []
-        for error in exc.errors(include_input=False, include_context=False, include_url=False):
-            field = ".".join(str(x) for x in error["loc"] if isinstance(x, int) or x in safe_fields) or "scorecard"
-            reasons.append(field + ": " + error["type"])
-        raise ValueError("Scorecard format or points are invalid (" + "; ".join(reasons[:3]) +
-                         "). No score was accepted; try scoring again.") from None
+        data = _extract_json(raw)
     except ValueError as exc:
-        reasons = {
-            "Scorecard candidate or job does not match the request.": "The response used the wrong candidate or job ID.",
-            "Criteria and weights must match the trusted job rubric.": "The response changed the job requirements or their weights.",
-            "Evidence must be an exact quote from the cleaned CV.": "A supporting quote was not copied exactly from the reviewed CV."
-        }
-        reason = reasons.get(str(exc), "The response failed evidence or scoring checks.")
-        raise ValueError(reason + " No score was accepted; human review is required.") from None
-
-
-def score_prepared(candidate: dict[str, str], *, complete: Callable[[list[dict[str, str]]], str],
-                   rubric_path: str | Path, job_id: str = "ai-engineer") -> Scorecard:
-    """Score the exact text the recruiter reviewed, using server-owned identity."""
-    rubric = read_rubric(rubric_path)
-    payload = dict(candidate_hash=candidate["candidate_hash"], job_id=job_id,
-                   rubric=rubric, rubric_guidance=Path(rubric_path).read_text(encoding="utf-8"),
-                   candidate_data=candidate["candidate_data"],
-                   schema=Scorecard.model_json_schema())
-    messages = [{"role": "system", "content": SYSTEM_INSTRUCTIONS},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
-    raw = complete(messages)
-    try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, TypeError) as exc:
-        raise ValueError("Scoring service returned invalid JSON; no score was accepted.") from exc
+        raise _Rejected(str(exc), "Your reply was not valid JSON. Reply with only the JSON scorecard.") from None
     try:
         return validate_scorecard(data, cleaned_text=candidate["cleaned_text"],
                                   candidate_hash=candidate["candidate_hash"],
@@ -140,14 +124,43 @@ def score_prepared(candidate: dict[str, str], *, complete: Callable[[list[dict[s
         for error in exc.errors(include_input=False, include_context=False, include_url=False):
             field = ".".join(str(x) for x in error["loc"] if isinstance(x, int) or x in safe_fields) or "scorecard"
             reasons.append(field + ": " + error["type"])
-        raise ValueError("Scorecard format or points are invalid (" + "; ".join(reasons[:3]) +
-                         "). No score was accepted; try scoring again.") from None
+        detail = "; ".join(reasons[:3])
+        raise _Rejected(f"Scorecard format or points are invalid ({detail}). No score was accepted; try scoring again.",
+                        f"The scorecard format or points were invalid ({detail}). "
+                        "Reply with only the corrected JSON scorecard.") from None
+    except EvidenceError as exc:
+        names = ", ".join(f"'{n}'" for n in exc.criteria)
+        raise _Rejected("A supporting quote was not copied exactly from the reviewed CV."
+                        " No score was accepted; human review is required.",
+                        f"Quote not found in CV for criterion {names}. Copy quotes exactly from the CV "
+                        "text, or use status NOT_FOUND with an empty quote. Reply with only the JSON scorecard.") from None
     except ValueError as exc:
-        # These messages come only from our own fixed validation rules, never model text.
-        reasons = {
-            "Scorecard candidate or job does not match the request.": "The response used the wrong candidate or job ID.",
-            "Criteria and weights must match the trusted job rubric.": "The response changed the job requirements or their weights.",
-            "Evidence must be an exact quote from the cleaned CV.": "A supporting quote was not copied exactly from the reviewed CV."
-        }
-        reason = reasons.get(str(exc), "The response failed evidence or scoring checks.")
-        raise ValueError(reason + " No score was accepted; human review is required.") from None
+        reason = _EVIDENCE_REASONS.get(str(exc), "The response failed evidence or scoring checks.")
+        raise _Rejected(reason + " No score was accepted; human review is required.",
+                        reason + " Reply with only the corrected JSON scorecard.") from None
+
+
+def score_with_rubric(candidate: dict[str, str], *, complete: Callable[[list[dict[str, str]]], str],
+                      rubric: dict[str, float], guidance: str, job_id: str) -> tuple[Scorecard, int]:
+    """Score the exact text the recruiter reviewed, using server-owned identity.
+
+    Returns (scorecard, attempts). A reply that is not valid JSON or fails validation gets
+    exactly one retry, told only which of our fixed checks failed. Transport errors
+    (including ScoringUnavailable) are never retried here; providers.complete owns fallback.
+    """
+    payload = dict(candidate_hash=candidate["candidate_hash"], job_id=job_id,
+                   rubric=rubric, rubric_guidance=guidance,
+                   candidate_data=candidate["candidate_data"],
+                   schema=Scorecard.model_json_schema())
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTIONS},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
+    for attempt in (1, 2):
+        raw = complete(messages)  # outside the try: provider errors must not trigger a retry
+        try:
+            return _check(raw, candidate, rubric, job_id), attempt
+        except _Rejected as exc:
+            if attempt == 2:
+                raise
+            messages = messages + [
+                {"role": "assistant", "content": raw if isinstance(raw, str) and raw.strip() else "(empty reply)"},
+                {"role": "user", "content": exc.feedback}]
