@@ -23,8 +23,10 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
     if not re.fullmatch(r"gemini-[a-zA-Z0-9.-]+", model):
         raise ValueError("GEMINI_MODEL must be a Gemini model ID.")
     body = {"systemInstruction": {"parts": [{"text": messages[0]["content"]}]},
-            "contents": [{"role": "user", "parts": [{"text": messages[1]["content"]}]}],
-            "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 8192}}
+            "contents": [{"role": "model" if m.get("role") == "assistant" else "user",
+                          "parts": [{"text": m["content"]}]} for m in messages[1:]],
+            "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 8192,
+                                 "temperature": 0}}
     request = Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=json.dumps(body).encode("utf-8"),

@@ -61,6 +61,7 @@ class WebChecks(unittest.TestCase):
             result = client.post(f"/api/reviews/{token}/score", headers=self.headers,
                                  json={})
         self.assertEqual(result.status_code, 200, result.text)
+        self.assertEqual(result.json()["attempts"], 1)
         self.assertEqual(client.post(f"/api/reviews/{token}/score", headers=self.headers,
                                     json={}).status_code, 409)
 

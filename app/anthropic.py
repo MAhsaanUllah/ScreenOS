@@ -1,6 +1,7 @@
 """Anthropic Messages API transport. Never log credentials, prompts or error bodies."""
 
 import json
+import logging
 import os
 import time
 from urllib.error import HTTPError, URLError
@@ -9,6 +10,7 @@ from urllib.request import Request, urlopen
 ENDPOINT = "https://api.anthropic.com/v1/messages"
 VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-3-5-haiku-latest"
+logger = logging.getLogger("uvicorn.error")
 
 
 def complete(messages: list[dict[str, str]], *, key: str | None = None,
@@ -17,11 +19,15 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
     model = (model or os.getenv("ANTHROPIC_MODEL", "") or DEFAULT_MODEL).strip()
     if not key:
         raise ValueError("Add your Anthropic key in Settings or as ANTHROPIC_API_KEY in .env.")
-    body = {"model": model, "max_tokens": 8192, "system": messages[0]["content"],
-            "messages": [{"role": "user", "content": messages[1]["content"]}]}
-    request = Request(ENDPOINT, data=json.dumps(body).encode("utf-8"),
-                      headers={"Content-Type": "application/json", "x-api-key": key,
-                               "anthropic-version": VERSION}, method="POST")
+    # Whole conversation after the system prompt, so a retry's feedback reaches the model.
+    body = {"model": model, "max_tokens": 8192, "temperature": 0, "system": messages[0]["content"],
+            "messages": [{"role": m["role"], "content": m["content"]} for m in messages[1:]]}
+
+    def build():
+        return Request(ENDPOINT, data=json.dumps(body).encode("utf-8"),
+                       headers={"Content-Type": "application/json", "x-api-key": key,
+                                "anthropic-version": VERSION}, method="POST")
+    request = build()
     for attempt in range(3):
         try:
             with urlopen(request, timeout=120) as response:
@@ -30,6 +36,11 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
         except HTTPError as exc:
             code = exc.code
             exc.close()
+            if code == 400 and "temperature" in body:  # some models refuse a fixed temperature
+                del body["temperature"]
+                logger.warning("Anthropic rejected temperature/json mode; retried without it")
+                request = build()
+                continue
             if code in {500, 502, 503, 504, 529} and attempt < 2:
                 time.sleep(2 ** attempt)
                 continue
