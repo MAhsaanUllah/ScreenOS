@@ -3,13 +3,17 @@
 Open-source, self-hostable AI resume screening workspace for evidence-backed, human-reviewed hiring.
 
 <p>
-  <a href="https://github.com/MAhsaanUllah/ScreenOS/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-blue?style=flat-square" alt="Release v1.0.0"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/Release-v1.1.0-blue?style=flat-square" alt="Release v1.1.0"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/.github/workflows/tests.yml"><img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/frontend/package.json"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18"></a>
-  <a href="https://github.com/MAhsaanUllah/ScreenOS/actions"><img src="https://img.shields.io/badge/Tests-79%20passing-brightgreen?style=flat-square" alt="Tests 79 passing"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/actions"><img src="https://img.shields.io/badge/Tests-170%20passing-brightgreen?style=flat-square" alt="Tests 170 passing"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/Dockerfile"><img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS#quick-start"><img src="https://img.shields.io/badge/Self--Hosted-yes-informational?style=flat-square" alt="Self-Hosted"></a>
 </p>
+
+### 2-minute demo
+[![ScreenOS 2-minute demo](https://img.youtube.com/vi/7UX9VHtbw4k/maxresdefault.jpg)](https://youtu.be/7UX9VHtbw4k)
+![Hidden prompt injection stripped and flagged](docs/screenos-injection.gif)
 
 <p align="center">
   <img src="screenshots/screenos-cover.png"
@@ -142,23 +146,31 @@ FastAPI 0.141 + Pydantic 2.13, SQLite/Postgres, React 18 + Vite 5 + Tailwind, pd
 
 V1 does: job creation (`title` + JD), AI draft rubric (BYOK), HR edit/approve (100 pts), job-aware upload & scoring (1–50, same rubric), PII review, evidence scorecards, human decision, job-aware queue/analytics, CSV/JSON export, team & BYOK, self-host. Legacy reviews (`job_id NULL`) remain readable as *Legacy*.
 
+## Evaluation
+
+Evaluation results for v1.1 will be published after a fresh run on the release commit.
+
 ## Limitations
 
-- Manual CV ingestion (PDF/DOCX/TXT/ZIP) in V1; no job-board/ATS sync.
-- Image-only scanned PDFs are rejected with guidance; OCR via `pytesseract` is optional.
-- Human review is required for every scorecard.
-- Redaction is rule-based and cannot be undone: only the redacted text is stored, so `confirm-pii` can remove more but never restore anything.
-- Bare personal domains (e.g. `ahmedraza.dev`) are not detected; LinkedIn, GitHub and `http(s)://` / `www.` links are.
-- Years are removed only from education lines. A line with ALL-CAPS `BE`/`MA`, or a capitalised `Intermediate`, counts as an education line, so its years can be removed too.
-- PDF text: two-column pages are read column by column unless a full-width line crosses the gap (then they are read as before). White text is dropped unless it sits on a coloured box, and so is text under 5pt, so white text over a background image is lost too. When anything is dropped, Review PII shows "Hidden text removed (possible prompt injection)" with only the character count; the dropped text is never stored or shown.
-- Pakistani details: CNIC numbers, `S/O`/`D/O`/`W/O`/`Father Name:`/`Husband Name:`/`Guardian:` lines and address lines are always removed. A bare 13-digit number counts as a CNIC only on a line that says CNIC, NIC, ID card or National ID (dashed ones always do). An address line needs House/Street/Phase/Block/Sector/Plot/Road with a number plus a major city, or two different such pairs, and is only removed in the first 15 non-empty lines (the contact block) or on an Address:/Home Address:/Residence: line, never on bullet lines; a line with a work verb or "for"/"with" (led, built, developed, managed, designed, worked, implemented, created, maintained, for, with) or more than 12 words is never treated as an address, so an address that happens to contain one of those words is not removed; other address styles are not detected either. A year wrapped onto its own line below a degree is not removed.
-- Batch uploads take the name from the CV text, then the file name. If neither gives one, nothing is redacted for it and HR must confirm before scoring.
+- **Scanned PDFs need OCR** — Image-only scanned PDFs are rejected with clear guidance; OCR via `pytesseract` is optional.
+- **Bare personal domains** — Bare personal domains (e.g. `ahmedraza.dev`) are not detected; LinkedIn, GitHub and `http(s)://` / `www.` links are.
+- **White text on images** — White text is dropped unless it sits on a coloured box, and so is text under 5pt; white text over a background image is lost too. When anything is dropped, Review PII shows "Hidden text removed (possible prompt injection)" with only the character count; the dropped text is never stored or shown.
+- **Address rules** — Pakistani address lines require House/Street/Phase/Block/Sector/Plot/Road with a number plus a major city (or two different pairs), only removed in the first 15 non-empty lines (contact block) or explicit Address:/Home Address:/Residence: lines; lines with work verbs/for/with or >12 words are never treated as addresses; other freeform address styles are not detected.
+- **Manual CV ingestion** — Manual CV intake (PDF/DOCX/TXT/ZIP) in V1; no job-board/ATS sync.
+- **Human final decision** — Human review is required for every scorecard; AI cannot auto-decide.
+- **Irreversible redaction** — Redaction is rule-based and cannot be undone: only the redacted text is stored, so `confirm-pii` can remove more but never restore anything.
+- **Education years** — Years are removed only from education lines (`BE`/`MA`/`BS`/`Intermediate`). A year wrapped onto its own line below a degree is not removed.
+- **Batch name fallback** — Batch uploads take the candidate name from CV text, falling back to filename; if neither yields one, nothing is redacted for it until HR confirms before scoring.
+
+## Roadmap
+
+- Offline desktop app (see #7)
 
 ## Testing
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-# 79 tests — extraction, PII, scoring, evidence, BYOK, bulk, Jobs, rubrics, tenant isolation
+# 170 tests — extraction, PII, scoring, evidence, BYOK, bulk, Jobs, rubrics, tenant isolation
 ```
 
 ## Repository Structure
