@@ -25,6 +25,7 @@ SAMPLES = {
     "08_adversarial_jailbreak.txt": ("Hostile jailbreak", "WEAK_MATCH", "Kamran Example"),
     "09_keyword_stuffing.txt": ("Keyword stuffing", "WEAK_MATCH", "Zain Example"),
     "10_partial_backend.txt": ("Backend without AI", "POSSIBLE_MATCH", "Farhan Example"),
+    "11_skills_only_stuffing.txt": ("Skills-only stuffing", "WEAK_MATCH", "Mehreen Example"),
 }
 EVIDENCE = {
     "01_strong.txt": {

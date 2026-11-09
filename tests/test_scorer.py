@@ -59,4 +59,4 @@ class ScoringFlowChecks(unittest.TestCase):
                 card = score_candidate(sample, name="Sample Candidate", complete=response,
                                        rubric_path=ROOT / "rubrics/ai-engineer.md")
                 self.assertTrue(card.flagged_for_human)
-        self.assertEqual(len(seen), 10)
+        self.assertEqual(len(seen), 11)
