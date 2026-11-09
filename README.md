@@ -108,7 +108,7 @@ When ScreenOS runs inside Docker, `localhost:11434` refers to the container itse
 
 ## Supported AI Providers
 
-DeepSeek (default), Gemini, Anthropic, OpenAI, Groq, OpenRouter, Ollama local (`needs_key: false`). Configure per-organization in **Settings** or fallback via `.env` `LLM_PROVIDER=deepseek,gemini`.
+DeepSeek (default), Gemini, Anthropic, OpenAI, Groq, OpenRouter, Ollama local (`needs_key: false`). Configure per-organization in **Settings** or fallback via `.env` `LLM_PROVIDER=deepseek,gemini`. With a slow model or a rate limit, one score can take 1-2 minutes; the UI keeps waiting.
 
 ## Privacy & Security
 

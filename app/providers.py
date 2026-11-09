@@ -69,15 +69,23 @@ def complete(messages: list[dict[str, str]], *, credentials: list[dict] | None =
         raise ScoringUnavailable(
             f"Scoring provider setting is invalid. Choose from: {', '.join(CATALOG)}.")
 
+    rate_limited = False
     for number, (name, entry) in enumerate(chain, start=1):
         logger.info("Scoring attempt %d/%d using %s", number, len(chain), name)
         try:
             result = PROVIDERS[name](messages, **_options(name, entry, settings))
             logger.info("Scoring completed using %s", name)
             return result
-        except (ValueError, OSError):
+        except (ValueError, OSError) as exc:
             logger.warning("Scoring provider %s was unavailable", name)
+            err_msg = str(exc).lower()
+            if "rate limit" in err_msg or "quota" in err_msg or "429" in err_msg:
+                rate_limited = True
 
+    if rate_limited:
+        raise ScoringUnavailable(
+            "Scoring provider rate limit reached. Your CV preview is safe; try again shortly."
+        )
     raise ScoringUnavailable(
         "Scoring is temporarily unavailable. Your CV preview is safe; try again shortly."
     )

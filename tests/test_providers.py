@@ -25,6 +25,15 @@ class ProviderFailoverChecks(unittest.TestCase):
                 providers.complete([])
         self.assertNotIn("private", str(caught.exception))
 
+    @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "deepseek,gemini"})
+    @patch.dict("app.providers.os.environ", {}, clear=True)
+    def test_rate_limit_failure_message_is_distinct(self, settings):
+        rate_limited = lambda _: (_ for _ in ()).throw(ValueError("DeepSeek HTTP 429. Check quota or rate limits; retry later."))
+        with patch.dict(providers.PROVIDERS, {"deepseek": rate_limited, "gemini": rate_limited}):
+            with self.assertRaisesRegex(providers.ScoringUnavailable, "rate limit reached") as caught:
+                providers.complete([])
+        self.assertIn("preview is safe", str(caught.exception))
+
     @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "ollama"})
     @patch.dict("app.providers.os.environ", {}, clear=True)
     def test_ollama_uses_default_base_url(self, settings):

@@ -48,6 +48,38 @@ class OpenAiCompatChecks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "incomplete scoring text"):
                 openai_compat.complete(MESSAGES, base_url="https://x/v1", label="X", model="m")
 
+    def test_configurable_timeouts(self):
+        with patch("app.openai_compat.urlopen",
+                   return_value=io.BytesIO(json.dumps(COMPLETION).encode())) as send:
+            with patch.dict("os.environ", {"LLM_TIMEOUT": "45"}):
+                openai_compat.complete(MESSAGES, base_url="https://api.openai.com/v1", label="OpenAI", model="m")
+                self.assertEqual(send.call_args.kwargs["timeout"], 45.0)
+
+        with patch("app.openai_compat.urlopen",
+                   return_value=io.BytesIO(json.dumps(COMPLETION).encode())) as send:
+            with patch.dict("os.environ", {"OLLAMA_TIMEOUT": "180", "LLM_TIMEOUT": "45"}):
+                openai_compat.complete(MESSAGES, base_url="http://localhost:11434/v1", label="Ollama", model="m")
+                self.assertEqual(send.call_args.kwargs["timeout"], 180.0)
+
+    @patch("app.openai_compat.time.sleep")
+    def test_rate_limit_429_retries_once_and_respects_retry_after(self, mock_sleep):
+        err = HTTPError("https://api.groq.com", 429, "rate limited", {"Retry-After": "45"}, io.BytesIO(b""))
+        with patch("app.openai_compat.urlopen", side_effect=[err, io.BytesIO(json.dumps(COMPLETION).encode())]) as send:
+            res = openai_compat.complete(MESSAGES, base_url="https://api.groq.com/openai/v1", label="Groq", model="m")
+            self.assertEqual(res, "{}")
+            self.assertEqual(send.call_count, 2)
+            # Capped at 30 seconds
+            mock_sleep.assert_called_once_with(30.0)
+
+    @patch("app.openai_compat.time.sleep")
+    def test_503_retries_once_with_distinct_message_on_failure(self, mock_sleep):
+        err = HTTPError("https://api.groq.com", 503, "unavailable", {"Retry-After": "10"}, io.BytesIO(b""))
+        with patch("app.openai_compat.urlopen", side_effect=[err, err]) as send:
+            with self.assertRaisesRegex(ValueError, "temporarily unavailable"):
+                openai_compat.complete(MESSAGES, base_url="https://api.groq.com/openai/v1", label="Groq", model="m")
+            self.assertEqual(send.call_count, 2)
+            mock_sleep.assert_called_once_with(10.0)
+
 
 class AnthropicChecks(unittest.TestCase):
     REPLY = {"stop_reason": "end_turn", "content": [{"type": "text", "text": "{}"}]}
@@ -81,3 +113,18 @@ class AnthropicChecks(unittest.TestCase):
         with patch("app.anthropic.urlopen", return_value=io.BytesIO(json.dumps(cut).encode())):
             with self.assertRaisesRegex(ValueError, "did not finish normally"):
                 anthropic.complete(MESSAGES, key="k", model="m")
+
+    def test_configurable_timeout(self):
+        with patch("app.anthropic.urlopen", return_value=io.BytesIO(json.dumps(self.REPLY).encode())) as send:
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "k", "LLM_TIMEOUT": "55"}):
+                anthropic.complete(MESSAGES, model="m")
+                self.assertEqual(send.call_args.kwargs["timeout"], 55.0)
+
+    @patch("app.anthropic.time.sleep")
+    def test_rate_limit_429_retries_once_with_retry_after(self, mock_sleep):
+        err = HTTPError(anthropic.ENDPOINT, 429, "rate limited", {"Retry-After": "45"}, io.BytesIO(b""))
+        with patch("app.anthropic.urlopen", side_effect=[err, io.BytesIO(json.dumps(self.REPLY).encode())]) as send:
+            res = anthropic.complete(MESSAGES, key="k", model="m")
+            self.assertEqual(res, "{}")
+            self.assertEqual(send.call_count, 2)
+            mock_sleep.assert_called_once_with(30.0)

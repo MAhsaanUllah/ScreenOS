@@ -49,3 +49,22 @@ class GeminiChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 complete(messages)
             self.assertEqual(send.call_count, 1)
+
+    @patch("app.gemini.load_dotenv")
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key", "LLM_TIMEOUT": "75"})
+    def test_configurable_timeout(self, load):
+        reply = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": "{}"}]}}]}
+        with patch("app.gemini.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())) as send:
+            complete([{"role": "user", "content": "hi"}])
+            self.assertEqual(send.call_args.kwargs["timeout"], 75.0)
+
+    @patch("app.gemini.load_dotenv")
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"})
+    @patch("app.gemini.time.sleep")
+    def test_rate_limit_429_retries_once_with_retry_after(self, sleep, load):
+        reply = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": "{}"}]}}]}
+        err = HTTPError("https://example", 429, "rate limited", {"Retry-After": "45"}, None)
+        with patch("app.gemini.urlopen", side_effect=[err, io.BytesIO(json.dumps(reply).encode())]) as send:
+            self.assertEqual(complete([{"role": "user", "content": "hi"}]), "{}")
+            self.assertEqual(send.call_count, 2)
+            sleep.assert_called_once_with(30.0)

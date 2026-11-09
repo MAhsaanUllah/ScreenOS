@@ -20,3 +20,23 @@ class DeepSeekChecks(unittest.TestCase):
                     self.assertEqual(json.loads(req.data)["messages"],messages)
                 else:
                     with self.assertRaises(ValueError):complete(messages)
+
+    @patch("app.deepseek.dotenv_values", return_value={"DEEPSEEK_API_KEY":"test", "LLM_TIMEOUT": "85"})
+    @patch.dict("os.environ", {}, clear=True)
+    def test_configurable_timeout(self, config):
+        reply={"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}
+        with patch("app.deepseek.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())) as send:
+            complete([{"role":"user","content":"test"}])
+            self.assertEqual(send.call_args.kwargs["timeout"], 85.0)
+
+    @patch("app.deepseek.dotenv_values", return_value={"DEEPSEEK_API_KEY":"test"})
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("app.deepseek.time.sleep")
+    def test_rate_limit_429_retries_once_with_retry_after(self, sleep, config):
+        from urllib.error import HTTPError
+        reply={"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}
+        err = HTTPError("https://example", 429, "rate limited", {"Retry-After": "45"}, None)
+        with patch("app.deepseek.urlopen", side_effect=[err, io.BytesIO(json.dumps(reply).encode())]) as send:
+            self.assertEqual(complete([{"role":"user","content":"test"}]), "{}")
+            self.assertEqual(send.call_count, 2)
+            sleep.assert_called_once_with(30.0)
