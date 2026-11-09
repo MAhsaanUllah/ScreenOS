@@ -247,7 +247,7 @@ def rubric_restore(filename: str, request: Request):
 def notifications(request: Request):
     ctx = auth.authorize(request)
     # ponytail: no table, just recent decisions as notifications — add table when email needed
-    rows = db.rows("SELECT id, decision, created_at FROM reviews WHERE org_id=? AND decision IS NOT NULL ORDER BY decided_at DESC LIMIT 20", (ctx["org_id"],))
+    rows = db.rows("SELECT id, decision, created_at, decided_at FROM reviews WHERE org_id=? AND decision IS NOT NULL ORDER BY decided_at DESC LIMIT 20", (ctx["org_id"],))
     return [{"id": r["id"][:8], "decision": r["decision"], "at": r["decided_at"] or r["created_at"]} for r in rows]
 
 
