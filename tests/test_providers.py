@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app import providers
+from app.llm_limits import ProviderBusy, ProviderTimeout
 
 
 class ProviderFailoverChecks(unittest.TestCase):
@@ -27,12 +28,28 @@ class ProviderFailoverChecks(unittest.TestCase):
 
     @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "deepseek,gemini"})
     @patch.dict("app.providers.os.environ", {}, clear=True)
-    def test_rate_limit_failure_message_is_distinct(self, settings):
-        rate_limited = lambda _: (_ for _ in ()).throw(ValueError("DeepSeek HTTP 429. Check quota or rate limits; retry later."))
-        with patch.dict(providers.PROVIDERS, {"deepseek": rate_limited, "gemini": rate_limited}):
-            with self.assertRaisesRegex(providers.ScoringUnavailable, "rate limit reached") as caught:
+    def test_busy_failure_message(self, settings):
+        busy = lambda _: (_ for _ in ()).throw(ProviderBusy("quota hit"))
+        with patch.dict(providers.PROVIDERS, {"deepseek": busy, "gemini": busy}):
+            with self.assertRaisesRegex(providers.ScoringUnavailable, "The AI provider is busy \\(rate limit\\)\\. Try again in a minute\\."):
                 providers.complete([])
-        self.assertIn("preview is safe", str(caught.exception))
+
+    @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "deepseek,gemini"})
+    @patch.dict("app.providers.os.environ", {}, clear=True)
+    def test_timeout_failure_message(self, settings):
+        timed_out = lambda _: (_ for _ in ()).throw(ProviderTimeout("timed out"))
+        with patch.dict(providers.PROVIDERS, {"deepseek": timed_out, "gemini": timed_out}):
+            with self.assertRaisesRegex(providers.ScoringUnavailable, "The AI provider took too long\\. Try a faster model or raise LLM_TIMEOUT\\."):
+                providers.complete([])
+
+    @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "deepseek,gemini"})
+    @patch.dict("app.providers.os.environ", {}, clear=True)
+    def test_exception_type_recognition_not_string_matching(self, settings):
+        # A plain ValueError whose text has "rate limit" must NOT be treated as ProviderBusy
+        fake_busy = lambda _: (_ for _ in ()).throw(ValueError("The AI provider is busy (rate limit)"))
+        with patch.dict(providers.PROVIDERS, {"deepseek": fake_busy, "gemini": fake_busy}):
+            with self.assertRaisesRegex(providers.ScoringUnavailable, "Scoring is temporarily unavailable\\. Your CV preview is safe; try again shortly\\."):
+                providers.complete([])
 
     @patch("app.providers.dotenv_values", return_value={"LLM_PROVIDER": "ollama"})
     @patch.dict("app.providers.os.environ", {}, clear=True)

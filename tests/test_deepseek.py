@@ -21,9 +21,8 @@ class DeepSeekChecks(unittest.TestCase):
                 else:
                     with self.assertRaises(ValueError):complete(messages)
 
-    @patch("app.deepseek.dotenv_values", return_value={"DEEPSEEK_API_KEY":"test", "LLM_TIMEOUT": "85"})
-    @patch.dict("os.environ", {}, clear=True)
-    def test_configurable_timeout(self, config):
+    @patch.dict("os.environ", {"DEEPSEEK_API_KEY": "test", "LLM_TIMEOUT": "85"})
+    def test_configurable_timeout(self):
         reply={"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}
         with patch("app.deepseek.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())) as send:
             complete([{"role":"user","content":"test"}])

@@ -1,7 +1,5 @@
 """Anthropic Messages API transport. Never log credentials, prompts or error bodies."""
 
-import datetime
-import email.utils
 import json
 import logging
 import os
@@ -9,29 +7,12 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.llm_limits import ProviderBusy, ProviderTimeout, llm_timeout, retry_wait
+
 ENDPOINT = "https://api.anthropic.com/v1/messages"
 VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-3-5-haiku-latest"
 logger = logging.getLogger("uvicorn.error")
-
-
-def _parse_retry_after(headers, default: float = 1.0, max_delay: float = 30.0) -> float:
-    if headers:
-        raw = None
-        if hasattr(headers, "get"):
-            raw = headers.get("Retry-After") or headers.get("retry-after")
-        if raw is not None:
-            try:
-                val = float(raw)
-                return max(0.0, min(val, max_delay))
-            except (ValueError, TypeError):
-                try:
-                    dt = email.utils.parsedate_to_datetime(str(raw))
-                    diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-                    return max(0.0, min(diff, max_delay))
-                except Exception:
-                    pass
-    return default
 
 
 def complete(messages: list[dict[str, str]], *, key: str | None = None,
@@ -40,11 +21,7 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
     model = (model or os.getenv("ANTHROPIC_MODEL", "") or DEFAULT_MODEL).strip()
     if not key:
         raise ValueError("Add your Anthropic key in Settings or as ANTHROPIC_API_KEY in .env.")
-    timeout_raw = os.getenv("LLM_TIMEOUT")
-    try:
-        timeout_sec = float(timeout) if timeout is not None else (float(timeout_raw) if timeout_raw else 60.0)
-    except (ValueError, TypeError):
-        timeout_sec = 60.0
+    timeout_sec = llm_timeout(local=False, explicit=timeout)
     # Whole conversation after the system prompt, so a retry's feedback reaches the model.
     body = {"model": model, "max_tokens": 8192, "temperature": 0, "system": messages[0]["content"],
             "messages": [{"role": m["role"], "content": m["content"]} for m in messages[1:]]}
@@ -73,14 +50,14 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
             if code == 429:
                 if not retried_429:
                     retried_429 = True
-                    delay = _parse_retry_after(headers_dict, default=1.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=1.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
-                raise ValueError("Anthropic HTTP 429. Anthropic rate limit or quota reached; retry later.") from None
+                raise ProviderBusy("Anthropic HTTP 429. The AI provider is busy (rate limit). Try again in a minute.") from None
             if code in {503, 529}:
                 if not retried_503:
                     retried_503 = True
-                    delay = _parse_retry_after(headers_dict, default=2.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=2.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
                 raise ValueError(f"Anthropic HTTP {code}. Anthropic is temporarily unavailable or overloaded; retry shortly.") from None
@@ -92,7 +69,9 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
                     404: "Check the Anthropic model name."}
             raise ValueError(f"Anthropic HTTP {code}. " + hint.get(
                 code, "Provider request failed. No score was accepted.")) from None
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError) as exc:
+            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and "timed out" in str(getattr(exc, "reason", "")).lower()):
+                raise ProviderTimeout("The AI provider took too long. Try a faster model or raise LLM_TIMEOUT.") from None
             raise ValueError("Could not reach Anthropic. No score was accepted.") from None
         except ValueError:
             raise ValueError("Anthropic returned invalid JSON. No score was accepted.") from None

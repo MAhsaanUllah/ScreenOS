@@ -5,50 +5,15 @@ speak the same ``POST {base_url}/chat/completions`` contract. Only the base URL,
 an optional key and the model differ. Never log credentials, prompts or bodies.
 """
 
-import email.utils
-import datetime
 import json
 import logging
-import os
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.llm_limits import ProviderBusy, ProviderTimeout, llm_timeout, retry_wait
+
 logger = logging.getLogger("uvicorn.error")
-
-
-def _parse_retry_after(headers, default: float = 1.0, max_delay: float = 30.0) -> float:
-    if headers:
-        raw = None
-        if hasattr(headers, "get"):
-            raw = headers.get("Retry-After") or headers.get("retry-after")
-        if raw is not None:
-            try:
-                val = float(raw)
-                return max(0.0, min(val, max_delay))
-            except (ValueError, TypeError):
-                try:
-                    dt = email.utils.parsedate_to_datetime(str(raw))
-                    diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-                    return max(0.0, min(diff, max_delay))
-                except Exception:
-                    pass
-    return default
-
-
-def _get_timeout(label: str, explicit: float | None = None) -> float:
-    if explicit is not None and explicit > 0:
-        return float(explicit)
-    if label.lower().startswith("ollama"):
-        raw = os.getenv("OLLAMA_TIMEOUT") or os.getenv("LLM_TIMEOUT")
-        default = 120.0
-    else:
-        raw = os.getenv("LLM_TIMEOUT")
-        default = 60.0
-    try:
-        return float(raw) if raw else default
-    except (ValueError, TypeError):
-        return default
 
 
 def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
@@ -59,7 +24,8 @@ def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
     model = (model or "").strip()
     if not model:
         raise ValueError(f"Choose a {label} model before scoring.")
-    timeout_sec = _get_timeout(label, timeout)
+    is_local = label.lower().startswith("ollama") or "ollama" in base_url
+    timeout_sec = llm_timeout(local=is_local, explicit=timeout)
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = "Bearer " + key
@@ -89,14 +55,14 @@ def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
             if code == 429:
                 if not retried_429:
                     retried_429 = True
-                    delay = _parse_retry_after(headers_dict, default=1.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=1.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
-                raise ValueError(f"{label} HTTP 429. {label} rate limit or quota reached; retry later.") from None
+                raise ProviderBusy(f"{label} HTTP 429. The AI provider is busy (rate limit). Try again in a minute.") from None
             if code == 503:
                 if not retried_503:
                     retried_503 = True
-                    delay = _parse_retry_after(headers_dict, default=2.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=2.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
                 raise ValueError(f"{label} HTTP 503. {label} is temporarily unavailable; retry shortly.") from None
@@ -107,7 +73,9 @@ def complete(messages: list[dict[str, str]], *, base_url: str, label: str,
                     404: f"Check the {label} model name and base URL."}
             raise ValueError(f"{label} HTTP {code}. " + hint.get(
                 code, "Provider request failed. No score was accepted.")) from None
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError) as exc:
+            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and "timed out" in str(getattr(exc, "reason", "")).lower()):
+                raise ProviderTimeout("The AI provider took too long. Try a faster model or raise LLM_TIMEOUT.") from None
             raise ValueError(f"Could not reach {label}. No score was accepted.") from None
         except ValueError:
             raise ValueError(f"{label} returned invalid JSON. No score was accepted.") from None

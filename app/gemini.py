@@ -1,7 +1,5 @@
 """Gemini REST transport. Never log credentials, prompts or provider error bodies."""
 
-import datetime
-import email.utils
 import json
 import os
 from pathlib import Path
@@ -12,26 +10,9 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
+from app.llm_limits import ProviderBusy, ProviderTimeout, llm_timeout, retry_wait
+
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def _parse_retry_after(headers, default: float = 1.0, max_delay: float = 30.0) -> float:
-    if headers:
-        raw = None
-        if hasattr(headers, "get"):
-            raw = headers.get("Retry-After") or headers.get("retry-after")
-        if raw is not None:
-            try:
-                val = float(raw)
-                return max(0.0, min(val, max_delay))
-            except (ValueError, TypeError):
-                try:
-                    dt = email.utils.parsedate_to_datetime(str(raw))
-                    diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-                    return max(0.0, min(diff, max_delay))
-                except Exception:
-                    pass
-    return default
 
 
 def complete(messages: list[dict[str, str]], *, key: str | None = None,
@@ -43,11 +24,7 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
         raise ValueError("Add your Gemini key in Settings or as GEMINI_API_KEY in .env.")
     if not re.fullmatch(r"gemini-[a-zA-Z0-9.-]+", model):
         raise ValueError("GEMINI_MODEL must be a Gemini model ID.")
-    timeout_raw = os.getenv("LLM_TIMEOUT")
-    try:
-        timeout_sec = float(timeout) if timeout is not None else (float(timeout_raw) if timeout_raw else 60.0)
-    except (ValueError, TypeError):
-        timeout_sec = 60.0
+    timeout_sec = llm_timeout(local=False, explicit=timeout)
     body = {"systemInstruction": {"parts": [{"text": messages[0]["content"]}]},
             "contents": [{"role": "model" if m.get("role") == "assistant" else "user",
                           "parts": [{"text": m["content"]}]} for m in messages[1:]],
@@ -70,13 +47,13 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
             if code == 429:
                 if not retried_429:
                     retried_429 = True
-                    delay = _parse_retry_after(headers_dict, default=1.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=1.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
-                raise ValueError("Gemini HTTP 429. Quota or rate limit reached; check your Gemini quota and retry later.") from None
+                raise ProviderBusy("Gemini HTTP 429. The AI provider is busy (rate limit). Quota or rate limit reached; retry later.") from None
             if code in {500, 502, 503, 504}:
                 if attempt < 2:
-                    delay = _parse_retry_after(headers_dict, default=2 ** attempt, max_delay=30.0) if (code == 503 and (headers_dict.get("Retry-After") or headers_dict.get("retry-after"))) else (2 ** attempt)
+                    delay = retry_wait(headers_dict, default=2 ** attempt, max_delay=30.0) if (code == 503 and (headers_dict.get("Retry-After") or headers_dict.get("retry-after"))) else (2 ** attempt)
                     time.sleep(delay)
                     continue
                 raise ValueError("Gemini is temporarily unavailable after 3 attempts. "
@@ -87,7 +64,9 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
                         404: "Check GEMINI_MODEL availability."}
             raise ValueError(f"Gemini HTTP {code}. " + guidance.get(code,
                              "Provider request failed. No score was accepted.")) from None
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError) as exc:
+            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and "timed out" in str(getattr(exc, "reason", "")).lower()):
+                raise ProviderTimeout("The AI provider took too long. Try a faster model or raise LLM_TIMEOUT.") from None
             # A timed-out request may already have run; avoid automatic duplicate billing.
             raise ValueError(f"Could not reach Gemini within {int(timeout_sec)} seconds. Retry later.") from None
         except (ValueError, UnicodeError):

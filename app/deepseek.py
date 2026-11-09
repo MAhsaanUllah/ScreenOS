@@ -1,6 +1,4 @@
 """DeepSeek chat-completions transport using the official direct API."""
-import datetime
-import email.utils
 import json
 import logging
 import os
@@ -10,28 +8,11 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from dotenv import dotenv_values
 
+from app.llm_limits import ProviderBusy, ProviderTimeout, llm_timeout, retry_wait
+
 ROOT = Path(__file__).resolve().parents[1]
 ENDPOINT = "https://api.deepseek.com/chat/completions"
 logger = logging.getLogger("uvicorn.error")
-
-
-def _parse_retry_after(headers, default: float = 1.0, max_delay: float = 30.0) -> float:
-    if headers:
-        raw = None
-        if hasattr(headers, "get"):
-            raw = headers.get("Retry-After") or headers.get("retry-after")
-        if raw is not None:
-            try:
-                val = float(raw)
-                return max(0.0, min(val, max_delay))
-            except (ValueError, TypeError):
-                try:
-                    dt = email.utils.parsedate_to_datetime(str(raw))
-                    diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-                    return max(0.0, min(diff, max_delay))
-                except Exception:
-                    pass
-    return default
 
 
 def complete(messages: list[dict[str, str]], *, key: str | None = None,
@@ -40,11 +21,7 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
     key = (key or settings.get("DEEPSEEK_API_KEY") or "").strip()
     model = (model or settings.get("DEEPSEEK_MODEL") or "deepseek-v4-flash").strip()
     endpoint = settings.get("DEEPSEEK_BASE_URL") or ENDPOINT
-    timeout_raw = settings.get("LLM_TIMEOUT") or os.getenv("LLM_TIMEOUT")
-    try:
-        timeout_sec = float(timeout) if timeout is not None else (float(timeout_raw) if timeout_raw else 60.0)
-    except (ValueError, TypeError):
-        timeout_sec = 60.0
+    timeout_sec = llm_timeout(local=False, explicit=timeout)
     if not key:
         raise ValueError("Add your DeepSeek key in Settings or as DEEPSEEK_API_KEY in .env.")
     if endpoint.rstrip("/") != ENDPOINT:
@@ -75,14 +52,14 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
             if code == 429:
                 if not retried_429:
                     retried_429 = True
-                    delay = _parse_retry_after(headers_dict, default=1.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=1.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
-                raise ValueError("DeepSeek HTTP 429. Check quota or rate limits; retry later.") from None
+                raise ProviderBusy("DeepSeek HTTP 429. The AI provider is busy (rate limit). Try again in a minute.") from None
             if code == 503:
                 if not retried_503:
                     retried_503 = True
-                    delay = _parse_retry_after(headers_dict, default=2.0, max_delay=30.0)
+                    delay = retry_wait(headers_dict, default=2.0, max_delay=30.0)
                     time.sleep(delay)
                     continue
                 raise ValueError("DeepSeek HTTP 503. DeepSeek is temporarily unavailable; retry shortly.") from None
@@ -93,7 +70,9 @@ def complete(messages: list[dict[str, str]], *, key: str | None = None,
                     404: "Check the model ID."}
             raise ValueError(f"DeepSeek HTTP {code}. " + hint.get(code,
                              "Provider request failed; try again later. No score was accepted.")) from None
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError) as exc:
+            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and "timed out" in str(getattr(exc, "reason", "")).lower()):
+                raise ProviderTimeout("The AI provider took too long. Try a faster model or raise LLM_TIMEOUT.") from None
             raise ValueError("DeepSeek connection failed or timed out. No score was accepted.") from None
         except ValueError:
             raise ValueError("DeepSeek returned invalid JSON. No score was accepted.") from None
