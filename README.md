@@ -12,7 +12,7 @@ Open-source, self-hostable AI resume screening workspace for evidence-backed, hu
 </p>
 
 ### 2-minute demo
-<VIDEO_LINK>
+[![ScreenOS 2-minute demo](https://img.youtube.com/vi/7UX9VHtbw4k/maxresdefault.jpg)](https://youtu.be/7UX9VHtbw4k)
 ![Hidden prompt injection stripped and flagged](docs/screenos-injection.gif)
 
 <p align="center">
