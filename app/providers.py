@@ -7,6 +7,7 @@ from functools import partial
 from dotenv import dotenv_values
 
 from app import anthropic, deepseek, gemini, openai_compat
+from app.llm_limits import ProviderBusy, ProviderTimeout
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -69,15 +70,27 @@ def complete(messages: list[dict[str, str]], *, credentials: list[dict] | None =
         raise ScoringUnavailable(
             f"Scoring provider setting is invalid. Choose from: {', '.join(CATALOG)}.")
 
+    busy = False
+    timed_out = False
     for number, (name, entry) in enumerate(chain, start=1):
         logger.info("Scoring attempt %d/%d using %s", number, len(chain), name)
         try:
             result = PROVIDERS[name](messages, **_options(name, entry, settings))
             logger.info("Scoring completed using %s", name)
             return result
+        except ProviderBusy:
+            logger.warning("Scoring provider %s was busy (rate limit)", name)
+            busy = True
+        except ProviderTimeout:
+            logger.warning("Scoring provider %s timed out", name)
+            timed_out = True
         except (ValueError, OSError):
             logger.warning("Scoring provider %s was unavailable", name)
 
+    if busy:
+        raise ScoringUnavailable("The AI provider is busy (rate limit). Try again in a minute.")
+    if timed_out:
+        raise ScoringUnavailable("The AI provider took too long. Try a faster model or raise LLM_TIMEOUT.")
     raise ScoringUnavailable(
         "Scoring is temporarily unavailable. Your CV preview is safe; try again shortly."
     )
