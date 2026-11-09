@@ -19,9 +19,7 @@ class ProviderTimeout(ValueError):
 
 
 def _get_settings() -> dict:
-    env_path = ROOT / ".env"
-    file_vals = dotenv_values(env_path) if env_path.exists() else {}
-    return {**file_vals, **os.environ}
+    return {**dotenv_values(ROOT / ".env"), **os.environ}
 
 
 def llm_timeout(local: bool = False, explicit: float | None = None) -> float:
