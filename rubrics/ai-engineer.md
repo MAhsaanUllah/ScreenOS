@@ -19,7 +19,7 @@ Total available points: 100. Review work described in the CV, not demographics.
   award half its points. Explain what evidence is missing.
 - NOT_FOUND: no supporting evidence; award zero. This does not prove lack of skill.
 - Every positive award needs an exact quote from the cleaned CV.
-- A tool name in a skills list alone is at most partial evidence.
+- A skills list or tool name alone is not evidence of work: award NOT_FOUND unless a project, job duty or result is quoted.
 - Add the five awards for the total; retain half points without rounding.
 - Example summary bands: 75 or above = strong match; 50 to below 75 = possible
   match; below 50 = weak match. These are provisional, not hiring decisions.

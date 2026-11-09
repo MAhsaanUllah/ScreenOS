@@ -1,0 +1,9 @@
+FICTIONAL SAMPLE - not a real applicant
+Mehreen Example
+Technical Skills
+FastAPI, Flask, LangChain, LlamaIndex, RAG, LLM, Prompt Engineering, pgvector, Pinecone, Embeddings
+PostgreSQL, MySQL, Redis, Multi-tenant, Row Level Security, SQLAlchemy
+Docker, Kubernetes, Terraform, AWS, CI/CD, GitHub Actions, pytest, TDD
+Automation, AI Agents, n8n, Airflow, MLOps, NLP
+Interests
+Artificial Intelligence, Cloud, DevOps, Startups

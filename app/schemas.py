@@ -1,5 +1,6 @@
 """Day 2 scorecard contract; the scorer must use validate_scorecard."""
 
+import re
 from typing import Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -67,8 +68,93 @@ class EvidenceError(ValueError):
         self.criteria = criteria
 
 
+class SkillsListEvidence(ValueError):
+    """Quotes that are a skills list, not work. `criteria` holds rubric-matched names only."""
+
+    def __init__(self, criteria: list[str]):
+        super().__init__("Evidence must be work, not a skills list.")
+        self.criteria = criteria
+
+
 def _squash(text: str) -> str:
     return " ".join(text.split())
+
+
+# Past-tense work verbs only. Adjectives that look like verbs ("Distributed Systems",
+# "Containerized Apps") must not count, so there is no "-ed" rule.
+_WORK_VERBS = frozenset("""
+built led wrote developed deployed designed implemented created maintained migrated reduced improved
+automated tested shipped launched integrated optimized optimised managed mentored architected delivered
+analyzed analysed configured engineered refactored scaled increased introduced established owned trained
+processed handled coordinated researched authored published orchestrated monitored secured resolved
+streamlined accelerated cut saved grew drove supervised hired onboarded modernized rewrote replaced
+""".split())
+_SKILLS_HEADING_RE = re.compile(
+    r"(?i)^\s*(?:technical\s+skills|skills|technologies|tools|tech\s+stack|core\s+competencies|keywords)"
+    r"\s*(?::.*)?$")
+
+
+def _has_work_verb(text: str) -> bool:
+    return any(w in _WORK_VERBS for w in re.findall(r"[a-z]+", text.lower()))
+
+
+def _is_keyword_list(quote: str) -> bool:
+    """3+ comma separated short items and no work verb: "FastAPI, PostgreSQL, Docker"."""
+    items = [i.strip() for i in quote.split(",") if i.strip()]
+    return len(items) >= 3 and all(len(i.split()) <= 3 for i in items) and not _has_work_verb(quote)
+
+
+_SECTION_NAME_RE = re.compile(
+    r"(?i)(?:work\s+|professional\s+)?experience|employment(?:\s+history)?|education|projects?|summary|profile|"
+    r"objective|certifications?|awards?|publications?|interests|references|achievements|training|courses|"
+    r"volunteer(?:ing)?|languages|background|about(?:\s+me)?|contact|personal\s+(?:details|information)|links")
+
+
+def _looks_like_heading(line: str) -> bool:
+    """A known CV section name, an ALL CAPS line, or a short line ending with a colon.
+
+    A plain title-case line is NOT a heading: "Kubernetes" alone is a skill, not a new section.
+    """
+    text = line.strip()
+    if not text or len(text.split()) > 4 or text[0] in "-\u2022*\u2013\u2014\u00b7" or re.search(r"[\d,;.]", text):
+        return False
+    return text.endswith(":") or text.isupper() or bool(_SECTION_NAME_RE.fullmatch(text))
+
+
+def _skills_section_lines(lines: list[str]) -> list[bool]:
+    """True for every line under a Skills-type heading, up to the next heading-like line.
+
+    shortcut: only known section names, ALL CAPS lines and "Word:" lines end the section, so an
+    unusual heading ("Volunteer Work") does not; a verb-less line under it is then read as a skill.
+    """
+    flags, inside = [], False
+    for line in lines:
+        if _SKILLS_HEADING_RE.match(line):
+            inside = True
+            flags.append(True)
+        elif inside and _looks_like_heading(line):
+            inside = False
+            flags.append(False)
+        else:
+            flags.append(inside)
+    return flags
+
+
+def _is_skills_list(quote: str, cleaned_text: str) -> bool:
+    """A listed skill proves the word is written, not that the work was done.
+
+    Rejected: a comma list of short items with no work verb, or a quote that only appears under a
+    Skills-type heading and has no work verb. "Core Competencies: Built RAG systems" is work, so it passes.
+    """
+    if _is_keyword_list(quote):
+        return True
+    if _has_work_verb(quote):
+        return False
+    pattern = r"\s+".join(re.escape(t) for t in quote.split())
+    flags = _skills_section_lines(cleaned_text.split("\n"))
+    spans = [(cleaned_text.count("\n", 0, m.start()), cleaned_text.count("\n", 0, m.end()))
+             for m in re.finditer(pattern, cleaned_text)]
+    return bool(spans) and all(all(flags[a:b + 1]) for a, b in spans)
 
 
 def validate_scorecard(data: dict, *, cleaned_text: str, candidate_hash: str,
@@ -88,4 +174,7 @@ def validate_scorecard(data: dict, *, cleaned_text: str, candidate_hash: str,
            if i.evidence_quote and _squash(i.evidence_quote) not in haystack]
     if bad:
         raise EvidenceError(bad)
+    listy = [i.criterion for i in card.criteria if i.evidence_quote and _is_skills_list(i.evidence_quote, cleaned_text)]
+    if listy:
+        raise SkillsListEvidence(listy)
     return card
