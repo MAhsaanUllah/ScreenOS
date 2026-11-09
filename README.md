@@ -3,10 +3,10 @@
 Open-source, self-hostable AI resume screening workspace for evidence-backed, human-reviewed hiring.
 
 <p>
-  <a href="https://github.com/MAhsaanUllah/ScreenOS/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-blue?style=flat-square" alt="Release v1.0.0"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/Release-v1.1.0-blue?style=flat-square" alt="Release v1.1.0"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/.github/workflows/tests.yml"><img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/frontend/package.json"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18"></a>
-  <a href="https://github.com/MAhsaanUllah/ScreenOS/actions"><img src="https://img.shields.io/badge/Tests-153%20passing-brightgreen?style=flat-square" alt="Tests 153 passing"></a>
+  <a href="https://github.com/MAhsaanUllah/ScreenOS/actions"><img src="https://img.shields.io/badge/Tests-170%20passing-brightgreen?style=flat-square" alt="Tests 170 passing"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS/blob/main/Dockerfile"><img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"></a>
   <a href="https://github.com/MAhsaanUllah/ScreenOS#quick-start"><img src="https://img.shields.io/badge/Self--Hosted-yes-informational?style=flat-square" alt="Self-Hosted"></a>
 </p>
@@ -170,7 +170,7 @@ Evaluation results for v1.1 will be published after a fresh run on the release c
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-# 153 tests — extraction, PII, scoring, evidence, BYOK, bulk, Jobs, rubrics, tenant isolation
+# 170 tests — extraction, PII, scoring, evidence, BYOK, bulk, Jobs, rubrics, tenant isolation
 ```
 
 ## Repository Structure
