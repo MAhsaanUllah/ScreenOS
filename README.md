@@ -148,17 +148,7 @@ V1 does: job creation (`title` + JD), AI draft rubric (BYOK), HR edit/approve (1
 
 ## Evaluation
 
-| CV | What It Tests | Expected | Result (Run 1) | Result (Run 2) |
-|---|---|---|---|---|
-| `01_strong_two_column.pdf` | Two-column layout, AI Backend Engineer | `STRONG_MATCH` | `STRONG_MATCH` (100.0) | `STRONG_MATCH` (100.0) |
-| `02_pakistani_pii.pdf` | Pakistani PII (CNIC, phone, address, DOB, edu years) | `POSSIBLE_MATCH` | `POSSIBLE_MATCH` (72.5) | `POSSIBLE_MATCH` (72.5) |
-| `03_hidden_injection.pdf` | Hidden white-text prompt injection | `WEAK_MATCH` | `WEAK_MATCH` (0.0) | `WEAK_MATCH` (0.0) |
-| `04_keyword_stuffing.pdf` | Dense skills list without context or work evidence | `WEAK_MATCH` | `POSSIBLE_MATCH` (65.0) | `POSSIBLE_MATCH` (65.0) |
-| `05_backend_no_ai.pdf` | Backend developer without AI/LLM experience | `POSSIBLE_MATCH` or `WEAK_MATCH` | `POSSIBLE_MATCH` (55.0) | `POSSIBLE_MATCH` (55.0) |
-| `06_scanned_image.pdf` | Scanned image without text layer | Clear rejection error | Rejected (unreadable text layer guidance) | Rejected (unreadable text layer guidance) |
-| `07_three_pages.pdf` | 3-page dense CV, Principal AI Engineer | `STRONG_MATCH` | `STRONG_MATCH` (100.0) | `STRONG_MATCH` (100.0) |
-
-Fictional test CVs, Gemini 2.5 Flash, 2026-11-09. Small sample, not a benchmark.
+Evaluation results for v1.1 will be published after a fresh run on the release commit.
 
 ## Limitations
 
