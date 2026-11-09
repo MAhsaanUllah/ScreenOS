@@ -17,7 +17,7 @@ import zipfile
 from pathlib import Path
 
 from app import db
-from app.extractor import extract_text
+from app.extractor import extract_with_report
 from app.guardrails import _guess_name, detect_pii, prepare_candidate
 from app.reviews import store_review
 
@@ -47,8 +47,10 @@ def _intake(ctx: dict, customs: list, filename: str, data: bytes, job_id: str | 
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / ("resume" + Path(filename).suffix.lower())
         path.write_bytes(data)
-        raw_text = extract_text(path)
+        raw_text, hidden = extract_with_report(path)
     items = detect_pii(raw_text)
+    if hidden:
+        items.append({"type": "hidden_text", "value": str(hidden)})
     name = _guess_name(raw_text) or _name_from_filename(filename)
     if name and not any(i["type"] == "name" for i in items):
         items.append({"type": "name", "value": name})

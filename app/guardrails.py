@@ -38,10 +38,80 @@ def _is_edu_line(line: str) -> bool:
     return bool(_EDU_YEAR_RE.search(line) or _EDU_ABBR_RE.search(line))
 
 
+# --- Pakistani identity details -------------------------------------------------------------
+# Dashed CNIC (12345-1234567-1) always. A bare 13-digit number only when its line says it is an ID.
+_CNIC_RE = re.compile(r"(?<!\d)(?:\d{5}-\d{7}-\d|\d{13})(?!\d)")
+_CNIC_LABEL_RE = re.compile(r"\b(?:CNIC|NIC|ID card|National ID)\b", re.IGNORECASE)
+# "S/O Ahmed Raza" (also D/O, W/O). Case-sensitive with a capitalised name after it, so the
+# everyday "w/o" ("without") never matches. Removes from the marker to the end of the line.
+_RELATION_MARK_RE = re.compile(r"\b[SDW]/O\b[:.]?[ \t]*[A-Z][^\n]*")
+_RELATION_LABEL_RE = re.compile(
+    r"(?im)^[ \t]*(?:father(?:'s)?[ \t]+name|husband(?:'s)?[ \t]+name|guardian)[ \t]*:[^\n]*")
+_ADDR_PART_RE = re.compile(
+    r"\b(House|Street|Phase|Block|Sector|Plot|Road)[ \t]*(?:No\.?|#)?[ \t]*[A-Za-z]?-?\d+[A-Za-z]?\b",
+    re.IGNORECASE)
+_CITY_RE = re.compile(
+    r"\b(?:Lahore|Karachi|Islamabad|Rawalpindi|Faisalabad|Multan|Peshawar|Quetta|Hyderabad|Sialkot|"
+    r"Gujranwala|Gujrat|Sargodha|Bahawalpur|Sukkur|Larkana|Abbottabad|Mardan|Sahiwal|Mirpur|Muzaffarabad)\b",
+    re.IGNORECASE)
+
+
+def _is_cnic(m: re.Match) -> bool:
+    if "-" in m.group():
+        return True
+    text = m.string
+    start = text.rfind("\n", 0, m.start()) + 1
+    end = text.find("\n", m.end())
+    return bool(_CNIC_LABEL_RE.search(text[start:len(text) if end < 0 else end]))
+
+
+# Address rules only touch contact details: the first lines of the CV or an "Address:" line.
+CONTACT_LINES = 15
+_ADDR_LABEL_RE = re.compile(r"(?i)^\s*(?:home\s+address|address|residence)\s*:")
+_BULLETS = ("-", "\u2022", "*", "\u2013", "\u2014", "\u00b7")
+
+
+# A sentence is not an address: work verbs, "for"/"with", or a long line rule it out. Words that
+# also occur inside real addresses ("near the park", "Plot 4 and 5") are deliberately not listed.
+_SENTENCE_RE = re.compile(
+    r"\b(?:led|built|developed|managed|designed|worked|implemented|created|maintained|for|with)\b",
+    re.IGNORECASE)
+MAX_ADDRESS_WORDS = 12
+
+
+def _is_address_line(line: str) -> bool:
+    """House/Street/Phase/... followed by a number, plus a city, or two different such pairs."""
+    if _SENTENCE_RE.search(line) or len(line.split()) > MAX_ADDRESS_WORDS:
+        return False
+    kinds = {m.group(1).lower() for m in _ADDR_PART_RE.finditer(line)}
+    return bool(kinds) and (bool(_CITY_RE.search(line)) or len(kinds) >= 2)
+
+
+def _redact_pk_lines(text: str) -> str:
+    """Always-on removal of CNIC numbers, relation lines and address lines.
+
+    Address lines are only removed in the first CONTACT_LINES non-empty lines, or when the line
+    starts with "Address:" / "Home Address:" / "Residence:". Bullet lines are never address lines.
+    """
+    text = _CNIC_RE.sub(lambda m: "[CNIC REMOVED]" if _is_cnic(m) else m.group(), text)
+    text = _RELATION_LABEL_RE.sub("[RELATION REMOVED]", text)
+    text = _RELATION_MARK_RE.sub("[RELATION REMOVED]", text)
+    out, seen = [], 0
+    for line in text.split("\n"):
+        seen += bool(line.strip())
+        if line.lstrip().startswith(_BULLETS):
+            out.append(line)
+        elif _ADDR_LABEL_RE.match(line) or (line.strip() and seen <= CONTACT_LINES and _is_address_line(line)):
+            out.append("[ADDRESS REMOVED]")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 def detect_pii(text: str) -> list[dict]:
     """Return a list of PII items found in *text*.
 
-    Each item is ``{"type": "email"|"url"|"phone"|"year"|"name", "value": "..."}``.
+    Each item is ``{"type": "email"|"url"|"cnic"|"phone"|"year"|"name", "value": "..."}``.
     The list is ordered: emails, urls, phones, years, then name (if guessed).
     Duplicates are collapsed.
     """
@@ -62,9 +132,18 @@ def detect_pii(text: str) -> list[dict]:
     for m in _URL_RE.finditer(text):
         _add("url", m.group().rstrip(".,"))
 
+    # CNIC (own type, so its digits are not also reported as a phone number)
+    cnics = [m for m in _CNIC_RE.finditer(text) if _is_cnic(m)]
+    for m in cnics:
+        _add("cnic", m.group())
+
     # Phone numbers (filter short/long artefacts and "2019 - 2023" date ranges)
     for m in _PHONE_RE.finditer(text):
         digits = re.sub(r"\D", "", m.group())
+        if any(m.start() < c.end() and c.start() < m.end() for c in cnics):
+            continue
+        if re.fullmatch(r"[1-9]\d{12,}", m.group().strip()):
+            continue  # one unbroken 13+ digit number (not starting 0 or +) is an id or a count, not a phone
         if 7 <= len(digits) <= 15 and not _YEAR_RANGE_RE.fullmatch(m.group()):
             _add("phone", m.group().strip())
 
@@ -133,6 +212,8 @@ def _remove_pii_items(text: str, items: list[dict]) -> str:
         elif kind == "phone":
             cleaned = re.sub(re.escape(val), "[PHONE REMOVED]", cleaned,
                              flags=re.IGNORECASE)
+        elif kind == "cnic":
+            cleaned = re.sub(re.escape(val), "[CNIC REMOVED]", cleaned)
         elif kind == "url":
             cleaned = re.sub(re.escape(val), "[URL REMOVED]", cleaned,
                              flags=re.IGNORECASE)
@@ -192,11 +273,14 @@ def prepare_candidate(text: str, *, name: str = "", address: str = "",
 
     # Phase 4: labelled personal detail lines
     cleaned = re.sub(r"(?im)^\s*(?:name|full name|address|home address|location|"
-                     r"phone|mobile|email|date of birth|dob|age)\s*:[^\n]*",
+                     r"phone|mobile|email|date of birth|dob|age|cnic|nic|national id)\s*:[^\n]*",
                      "[PERSONAL DETAIL REMOVED]", cleaned)
 
     # Phase 5: remaining email addresses (belt-and-suspenders)
     cleaned = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "[EMAIL REMOVED]", cleaned)
+
+    # Phase 5b: CNIC numbers, relation lines (S/O, Father Name: ...) and address lines
+    cleaned = _redact_pk_lines(cleaned)
 
     # Phase 6: education-line year removal
     lines = []

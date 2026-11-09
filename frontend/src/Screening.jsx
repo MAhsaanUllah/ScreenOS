@@ -96,7 +96,7 @@ export default function Screening() {
         const data = await api('/api/preview', { method: 'POST', body: form })
         setRawText(data.raw_text)
         setDetectedPii(data.detected_pii)
-        setSelectedPii(new Set(data.detected_pii.map((_, i) => i)))
+        setSelectedPii(new Set(data.detected_pii.flatMap((p, i) => (p.type === 'hidden_text' ? [] : [i]))))
         setCard(null); setRecord(null); setNotes(''); setReviewId(null); setCleanedText(''); setPiiFlag(null)
         setStep(2)
         status(`Found ${data.detected_pii.length} personal detail${data.detected_pii.length === 1 ? '' : 's'}. Review and confirm what to remove.`)
@@ -207,7 +207,7 @@ export default function Screening() {
       const detail = await api(`/api/reviews/${row.review_id}`)
       setRawText(detail.cleaned_text)
       setDetectedPii(row.detected_pii || [])
-      const allIdx = new Set((row.detected_pii || []).map((_, i) => i))
+      const allIdx = new Set((row.detected_pii || []).flatMap((p, i) => (p.type === 'hidden_text' ? [] : [i])))
       setSelectedPii(allIdx)
       setReviewId(row.review_id)
       setCleanedText(detail.cleaned_text)
@@ -222,7 +222,7 @@ export default function Screening() {
     }
   }
 
-  const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year', url: 'Profile link' }
+  const piiTypeLabel = { name: 'Candidate name', email: 'Email address', phone: 'Phone number', year: 'Graduation year', url: 'Profile link', cnic: 'CNIC', hidden_text: 'Hidden text removed (possible prompt injection)' }
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -338,7 +338,7 @@ export default function Screening() {
           <section className="panel">
             <div className="flex items-center justify-between mb-4">
               <h2 className="panel-title mb-0">Detected personal information</h2>
-              <span className="text-xs text-slate-400">{selectedPii.size} of {detectedPii.length} selected</span>
+              <span className="text-xs text-slate-400">{selectedPii.size} of {detectedPii.filter(p => p.type !== 'hidden_text').length} selected</span>
             </div>
             {piiFlag && (
               <div className="mb-4 text-xs text-slate-600">
@@ -368,15 +368,17 @@ export default function Screening() {
                     {detectedPii.map((item, i) => (
                       <tr key={i} className="border-b border-slate-100 last:border-0">
                         <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedPii.has(i)}
-                            onChange={() => togglePii(i)}
-                            className="rounded"
-                          />
+                          {item.type === 'hidden_text' ? <span className="text-slate-300">&mdash;</span> : (
+                            <input
+                              type="checkbox"
+                              checked={selectedPii.has(i)}
+                              onChange={() => togglePii(i)}
+                              className="rounded"
+                            />
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs font-medium text-slate-600">{piiTypeLabel[item.type] || item.type}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-800">{item.value}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-800">{item.type === 'hidden_text' ? `${item.value} characters` : item.value}</td>
                       </tr>
                     ))}
                   </tbody>
