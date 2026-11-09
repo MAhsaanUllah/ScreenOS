@@ -27,4 +27,15 @@ frontend/pnpm-workspace.yaml
 SCREENOS_CURRENT_SYSTEM_BASELINE.md
 SCREENOS_V1_PRODUCT_CONTRACT.md
 
+.kilo/
+.claude/
+.gemini/
+.pytest_cache/
+*.db
+*.sqlite3
+.cred_key
+.pr_desc*.md
+node_modules/
+
+
 
